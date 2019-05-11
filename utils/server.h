@@ -36,3 +36,5 @@ int initializeClient(int client_socket, char *username, struct client *client);
 int findNode(char *username, struct client_list *client_list, struct client_list **client_node);
 void *sync_thread_sv(void *socket);
 void listen_sync(int client_socket, char *username);
+void send_all_files(int client_socket, char *username);
+int getFileSize(FILE *ptrfile);

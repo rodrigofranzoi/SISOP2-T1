@@ -166,12 +166,10 @@ void sync_client_first() {
 }
 
 void *sync_thread() {
-    printf("Entra eeeeeeeeeeeeeeeeeeeeeeee\n");
 	int length, i = 0;
     char buffer[BUF_LEN];
 	char path[200];
 
-    printf("Entra dentro de sync\n");
 	create_sync_sock();
 	get_all_files();
 
@@ -223,7 +221,6 @@ void initializeNotifyDescription() {
 
 void get_all_files() {
 	int byteCount, bytesLeft, fileSize, fileNum, i;
-	struct client_request clientRequest;
 	FILE* ptrfile;
 	char dataBuffer[KBYTE], file[FILENAME_MAX_SIZE], path[KBYTE];
 
@@ -237,50 +234,57 @@ void get_all_files() {
 	if (byteCount < 0)
 		printf("Error sending DOWNLOAD message to server\n");
 
-	// byteCount = read(sync_socket, &fileNum, sizeof(fileNum));
+	packet connection;
+	byteCount = read(sync_socket, &connection, sizeof(struct packet));
+	fileNum = connection.payloadCommand;
 
-	// for(i = 0; i < fileNum; i++)
-	// {
-	// 	// lê nome do arquivo do servidor
-	// 	byteCount = read(sync_socket, file, sizeof(file));
-	// 	if (byteCount < 0)
-	// 		printf("Error receiving filename\n");
+	for(i = 0; i < fileNum; i++) {
+		// lê nome do arquivo do servidor
+		packet connectionFile;
+		byteCount = read(sync_socket, &connectionFile, sizeof(struct packet));
+		if (byteCount < 0) {
+			printf("Error receiving filename\n");
+		}
+		strcpy(file, connectionFile._payload);
 
-	// 	strcpy(path, directory);
-	// 	strcat(path, "/");
-	// 	strcat(path, file);
+		strcpy(path, directory);
+		strcat(path, "/");
+		strcat(path, file);
 
-	// 	// cria arquivo no diretório do cliente
-	// 	ptrfile = fopen(path, "wb");
+		// cria arquivo no diretório do cliente
+		ptrfile = fopen(path, "wb");
 
-	// 	read(sync_socket, &fileSize, sizeof(int));
+		packet connectionFileSize;
+		read(sync_socket, &connectionFileSize, sizeof(struct packet));
+		fileSize = connectionFileSize.length;
+		// número de bytes que faltam ser lidos
+		bytesLeft = fileSize;
 
-	// 	// número de bytes que faltam ser lidos
-	// 	bytesLeft = fileSize;
+		if (fileSize > 0)
+		{
+			while(bytesLeft > 0)
+			{
+				// lê 1kbyte de dados do arquivo do servidor
+				packet connectionFileData;
+				byteCount = read(sync_socket, &connectionFileData, sizeof(struct packet));
+				strcpy(dataBuffer, connectionFileData._payload);
 
-	// 	if (fileSize > 0)
-	// 	{
-	// 		while(bytesLeft > 0)
-	// 		{
-	// 			// lê 1kbyte de dados do arquivo do servidor
-	// 			byteCount = read(sync_socket, dataBuffer, KBYTE);
+				// escreve no arquivo do cliente os bytes lidos do servidor
+				if(bytesLeft > KBYTE)
+				{
+					byteCount = fwrite(dataBuffer, KBYTE, 1, ptrfile);
+				}
+				else
+				{
+					fwrite(dataBuffer, bytesLeft, 1, ptrfile);
+				}
+				// decrementa os bytes lidos
+				bytesLeft -= KBYTE;
+			}
+		}
 
-	// 			// escreve no arquivo do cliente os bytes lidos do servidor
-	// 			if(bytesLeft > KBYTE)
-	// 			{
-	// 				byteCount = fwrite(dataBuffer, KBYTE, 1, ptrfile);
-	// 			}
-	// 			else
-	// 			{
-	// 				fwrite(dataBuffer, bytesLeft, 1, ptrfile);
-	// 			}
-	// 			// decrementa os bytes lidos
-	// 			bytesLeft -= KBYTE;
-	// 		}
-	// 	}
-
-	// 	fclose(ptrfile);
-	// }
+		fclose(ptrfile);
+	}
 }
 
 int create_sync_sock()

@@ -278,18 +278,87 @@ void listen_sync(int client_socket, char *username) {
   struct packet responseThread;
 
   do {	  	
-	/* read from the socket */
-	byteCount = read(client_socket, &responseThread, sizeof(struct packet));
-	if (byteCount < 0) {
-		printf("ERROR reading from socket");
-	} 
-
+		/* read from the socket */
+		byteCount = read(client_socket, &responseThread, sizeof(struct packet));
+		if (byteCount < 0) {
+			printf("ERROR reading from socket");
+		} 
       switch (responseThread.payloadCommand) {
         case UPLOAD: printf("RECEIVE UPLOAD CMD"); break;
-        case DOWNLOADALL: printf("RECEIVE DOWNLOADALL CMD"); break;
+        case DOWNLOADALL: send_all_files(client_socket, username); break;
         case DELETE: printf("RECEIVE DOWNLOADALL CMD"); break;
         case EXIT: ;break;
         default: break;
       }
   } while(responseThread.payloadCommand != EXIT);
+}
+
+void send_all_files(int client_socket, char *username) {
+	// printf("Entered SendALl");
+
+  int byteCount, bytesLeft, fileSize, fileNum=0, i;
+  FILE* ptrfile;
+  char dataBuffer[KBYTE], path[KBYTE];
+  struct client_list *client_node;
+	struct packet clientThread;
+
+  if (findNode(username, client_list, &client_node)) {
+    for(i = 0; i < FILE_MAX; i++) {
+      if (client_node->client.file_info[i].size != -1){
+				fileNum++;
+			}
+    }
+  }
+
+	clientThread.type = DATA;
+	clientThread.payloadCommand = fileNum;
+  write(client_socket, &clientThread, sizeof(struct packet));
+
+  for(i = 0; i < FILE_MAX; i++) {
+    if (client_node->client.file_info[i].size != -1) {
+      strcpy(path, username);
+      strcat(path, "/");
+      strcat(path, client_node->client.file_info[i].name);
+
+			struct packet clientPacketFile;
+			clientPacketFile.type = DATA;
+			strcpy(clientPacketFile._payload, client_node->client.file_info[i].name);
+      write(client_socket, &clientPacketFile, sizeof(struct packet));
+
+      if (ptrfile = fopen(path, "rb")) {
+          fileSize = getFileSize(ptrfile);
+
+          // escreve estrutura do arquivo no servidor
+					struct packet clientPacketSize;
+					clientPacketSize.type = DATA;
+					clientPacketSize.length = fileSize;
+					byteCount = write(client_socket, &clientPacketSize, sizeof(struct packet));
+
+          if (fileSize > 0) {
+            while(!feof(ptrfile)) {
+                fread(dataBuffer, sizeof(dataBuffer), 1, ptrfile);
+
+								struct packet clientPacketData;
+								clientPacketData.type = DATA;
+								strcpy(clientPacketData._payload, dataBuffer);
+								byteCount = write(client_socket, &clientPacketData, sizeof(struct packet));
+
+                if(byteCount < 0)
+                  printf("ERROR sending file\n");
+            }
+          }
+          fclose(ptrfile);
+      }
+    }
+  }
+}
+
+int getFileSize(FILE *ptrfile) {
+	int size;
+
+	fseek(ptrfile, 0L, SEEK_END);
+	size = ftell(ptrfile);
+	rewind(ptrfile);
+
+	return size;
 }

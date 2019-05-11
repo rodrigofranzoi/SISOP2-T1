@@ -13,8 +13,9 @@
 #include <time.h>
 #include <sys/stat.h>
 
+#define KBYTE 1024
 #define USER_MAX_NAME 20
-#define PAYLOAD_SIZE 256
+#define PAYLOAD_SIZE 1024
 #define FILE_MAX 20
 #define FILENAME_MAX_SIZE 20
 

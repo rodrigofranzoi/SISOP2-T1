@@ -1,6 +1,6 @@
 #define SHOULD_CREATE_THREAD 1
 
-#define KBYTE 1024
+
 
 
 #define EVENT_SIZE  ( sizeof (struct inotify_event) )
