@@ -1,8 +1,7 @@
 #include "../utils/config.h"
 
-#define FILENAME_MAX_SIZE 20
+
 #define FILEEXT_MAX_SIZE 8
-#define FILE_MAX 20
 
 #define DEVICE_FREE -1
 
@@ -30,9 +29,9 @@ struct client_list
   struct client_list *next;
 };
 
-
 void insertList(struct client_list **client_list, struct client client);
 int initializeClientList();
 void *client_thread (void *socket);
 int initializeClient(int client_socket, char *username, struct client *client);
 int findNode(char *username, struct client_list *client_list, struct client_list **client_node);
+void *sync_thread_sv(void *socket);

@@ -42,15 +42,16 @@ int main(int argc, char *argv[]) {
 		printf("ERROR reading from socket");
 	} 
 	
-	if(responseThread.shouldCreateThread) {
+	if(responseThread.payloadCommand) {
       if(pthread_create(&clientThread, NULL, client_thread, &newsockfd)) {
         printf("ERROR creating thread\n");
         return -1;
       }
 	} else {
-		printf("payload: %s \n\n", responseThread._payload);
-		printf("thread false \n");
-		printf("thread false \n");
+		if(pthread_create(&syncThread, NULL, sync_thread_sv, &newsockfd)) {
+        	printf("ERROR creating sync thread\n");
+        	return -1;
+      	}
 	}
 
 
@@ -190,7 +191,7 @@ void *client_thread (void *socket) {
     return NULL;
   }
 
-//   listen_client(*client_socket, username);
+//   listen_client(*client_socket, username); TODO
 }
 
 int initializeClient(int client_socket, char *username, struct client *client) {
@@ -251,4 +252,21 @@ int findNode(char *username, struct client_list *client_list, struct client_list
 			client_list_aux = client_list_aux->next;
 	}
 	return 0;
+}
+
+void *sync_thread_sv(void *socket) {
+  int byteCount, connected;
+  int *client_socket = (int*)socket;
+  char username[USER_MAX_NAME];
+  struct packet clientThread;
+
+  // lê os dados de um cliente
+  byteCount = read(*client_socket, &clientThread, sizeof(struct packet));
+  strcpy(username, clientThread._payload);
+
+  // erro de leitura
+  if (byteCount < 1)
+    printf("ERROR reading from socket\n");
+
+//   listen_sync(*client_socket, username); TODO
 }
