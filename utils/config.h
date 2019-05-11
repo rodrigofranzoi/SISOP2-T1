@@ -5,7 +5,16 @@
 #include <sys/types.h> 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <pthread.h>
+#include <errno.h>
+#include <dirent.h>
+#include <time.h>
+#include <sys/stat.h>
 
+#define USER_MAX_NAME 20
+#define PAYLOAD_SIZE 256
 
 // server
 #define PORT 4000
@@ -20,5 +29,8 @@ typedef struct packet{
     uint16_t seqn;               //Número de sequência
     uint32_t total_size;         //Número total de fragmentos
     uint16_t length;             //Comprimento do payload 
-    char _payload[256];              //Dados do pacote
-} packet; 
+    char _payload[PAYLOAD_SIZE]; //Dados do pacote
+    int shouldCreateThread;
+} packet;
+
+

@@ -114,7 +114,7 @@ int connect_server (char *host, int port) {
 		return -1;
 	}
 
-    packet threadSetter;
+    // packet threadSetter;
 
     // threadSetter.type = RESP;
     // strcpy(threadSetter._payload, SHOULD_CREATE_THREAD);
@@ -123,6 +123,7 @@ int connect_server (char *host, int port) {
 
     packet userPacket;
     userPacket.type = RESP;
+    userPacket.shouldCreateThread = SHOULD_CREATE_THREAD;
     strcpy(userPacket._payload, username);
 	//envia username para o servidor
     socketByteSize = write(sockfd, &userPacket, sizeof(struct packet));
