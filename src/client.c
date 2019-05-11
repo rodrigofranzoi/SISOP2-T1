@@ -1,26 +1,25 @@
 #include <netdb.h> 
 #include "../utils/config.h"
 #include "../utils/client.h"
+#include "../utils/utils.h"
 
 
-char userid[USER_MAX_NAME];
+char username[USER_MAX_NAME];
 char *host;
 int port;
 
 int main(int argc, char *argv[])
 {
-    int sockfd, n;
+
     struct sockaddr_in serv_addr;
     struct hostent *server;
 	
     char buffer[256];
-	
+    
     //Verifica os parametros e configura o host
     if(initHost(argv, argc) == -1) exit(0);
 
-    
-
-    connect_server(host, port)
+    connect_server(host, port);
     // if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) 
     //     printf("ERROR opening socket\n");
     
@@ -65,7 +64,7 @@ int initHost(char *argv[], int argc) {
 
     // primeiro argumento nome do usuário
 	if (strlen(argv[1]) <= USER_MAX_NAME) {
-        strcpy(userid, argv[1]);
+        strcpy(username, argv[1]);
     } else {
         printf("User Name Is Too long \n");
         return -1;
@@ -75,7 +74,6 @@ int initHost(char *argv[], int argc) {
 	host = malloc(sizeof(argv[2]));
 	strcpy(host, argv[2]);
 
-
 	// terceiro argumento porta
     port = atoi(argv[3]);
 
@@ -83,12 +81,13 @@ int initHost(char *argv[], int argc) {
 }
 
 int connect_server (char *host, int port) {
-	int socketByteSize, connected;
+
+	int socketByteSize, sockfd;
 	struct sockaddr_in server_addr;
 	struct hostent *server;
-	int client_thread = 1;
 	char buffer[256];
 
+    packet connected;
 
     // Inicializa Server
 	server = gethostbyname(host);
@@ -109,32 +108,42 @@ int connect_server (char *host, int port) {
 	server_addr.sin_addr = *((struct in_addr *)server->h_addr);
 	bzero(&(server_addr.sin_zero), 8);
 
-	
     // Testa Socket
 	if (connect(sockfd,(struct sockaddr *) &server_addr,sizeof(server_addr)) < 0) {
   		printf("ERROR connecting\n");
 		return -1;
 	}
 
-	write(sockfd, &client_thread, sizeof(client_thread));
+    packet threadSetter;
 
-	// envia userid para o servidor
-    socketByteSize = write(sockfd, userid, sizeof(userid));
+    // threadSetter.type = RESP;
+    // strcpy(threadSetter._payload, SHOULD_CREATE_THREAD);
+
+	// write(sockfd, &threadSetter, sizeof(struct packet));
+
+    packet userPacket;
+    userPacket.type = RESP;
+    strcpy(userPacket._payload, username);
+	//envia username para o servidor
+    socketByteSize = write(sockfd, &userPacket, sizeof(struct packet));
     if (socketByteSize < 0) {
-		printf("ERROR sending userid to server\n");
-		return -1;
-	}
+ 	    printf("ERROR sending username to server\n");
+        return -1;
+    }
 
-	socketByteSize = read(sockfd, &connected, sizeof(int));
+	socketByteSize = read(sockfd, &connected, sizeof(struct packet));
 
-	if (socketByteSize < 0){
-		printf("ERROR receiving connected message\n");
-		return -1;
-	} else if (connected == 1) {
-		printf("connected\n");
-		return 1;
-	} else {
-		printf("You already have two devices connected\n");
-		return -1;
-	}
+    if(connected.type ==  RESP){
+        printf("respo payload %s", connected._payload);
+        if (socketByteSize < 0){
+            printf("ERROR receiving connected message\n");
+            return -1;
+        } else if (1) {
+            printf("connected\n");
+            return 1;
+        } else {
+            printf("You already have two devices connected\n");
+            return -1;
+        }
+    } else return -1;
 }

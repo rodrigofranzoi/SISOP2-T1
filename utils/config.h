@@ -10,6 +10,15 @@
 // server
 #define PORT 4000
 
+//Tipos de pacote
+#define DATA 1
+#define CMD  2
+#define RESP 3
 
-
-
+typedef struct packet{
+    uint16_t type;               //Tipo do pacote(p.ex. DATA| CMD)
+    uint16_t seqn;               //Número de sequência
+    uint32_t total_size;         //Número total de fragmentos
+    uint16_t length;             //Comprimento do payload 
+    char _payload[256];              //Dados do pacote
+} packet; 
