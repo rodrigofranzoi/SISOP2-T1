@@ -4,6 +4,7 @@
 #define FILEEXT_MAX_SIZE 8
 
 #define DEVICE_FREE -1
+#define MAIN_REPOSITORY "./../repository"
 
 struct file_info
 {
@@ -38,3 +39,5 @@ void *sync_thread_sv(void *socket);
 void listen_sync(int client_socket, char *username);
 void send_all_files(int client_socket, char *username);
 int getFileSize(FILE *ptrfile);
+void receive_file(struct packet responseThread, int socket, char*username);
+void updateFileInfo(char *username, struct file_info file_info);

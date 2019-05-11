@@ -106,19 +106,19 @@ int initializeClientList() {
             i = 0;
             while((userDirent = readdir(userDir)) != NULL) {
               //testa se e um arquivo regular e se esta no root dir
-			 	if(userDirent->d_type == DT_REG && strcmp(userDirent->d_name,".")!=0 && strcmp(userDirent->d_name,"..")!=0) {
+			 						if(userDirent->d_type == DT_REG && strcmp(userDirent->d_name,".")!=0 && strcmp(userDirent->d_name,"..")!=0) {
                 	strcpy(path, folder);
                 	strcat(path, userDirent->d_name);
 
                  	stat(path, &st);
 
                  	strcpy(client.file_info[i].name, userDirent->d_name);
-					client.file_info[i].size = st.st_size;
-					client.file_info[i].lst_modified = st.st_mtime;
+									client.file_info[i].size = st.st_size;
+									client.file_info[i].lst_modified = st.st_mtime;
 
-					strcpy(client.file_info[i].last_modified, ctime(&st.st_mtime));
+									strcpy(client.file_info[i].last_modified, ctime(&st.st_mtime));
 
-					i++;
+								i++;
             	}
            	}
             insertList(&client_list, client);
@@ -284,7 +284,7 @@ void listen_sync(int client_socket, char *username) {
 			printf("ERROR reading from socket");
 		} 
       switch (responseThread.payloadCommand) {
-        case UPLOAD: printf("RECEIVE UPLOAD CMD"); break;
+        case UPLOAD: receive_file(responseThread, client_socket, username); break;
         case DOWNLOADALL: send_all_files(client_socket, username); break;
         case DELETE: printf("RECEIVE DOWNLOADALL CMD"); break;
         case EXIT: ;break;
@@ -361,4 +361,97 @@ int getFileSize(FILE *ptrfile) {
 	rewind(ptrfile);
 
 	return size;
+}
+
+void receive_file(struct packet responseThread, int socket, char*username) {
+  int byteCount, bytesLeft, fileSize;
+  FILE* ptrfile;
+  char dataBuffer[KBYTE], path[200];
+	char file[FILENAME_MAX_SIZE];
+  struct file_info file_info;
+  time_t now;
+	
+	fileSize = responseThread.length;
+
+	printf("file zie %d \n", fileSize);
+	printf("user %s\n", username);
+	printf("filename %s\n", responseThread._payload);
+
+	strcpy(file, responseThread._payload);
+	printf("1\n");
+  strcpy(path, username);
+	printf("2\n");
+  strcat(path, "/");
+	printf("3\n");
+  strcat(path, file);
+
+	printf("path %s\n", path);
+
+	printf("-1");
+
+  if (ptrfile = fopen(path, "wb")) {
+
+      if (fileSize == 0) {
+        fclose(ptrfile);
+
+      	strcpy(file_info.name, file);
+        strcpy(file_info.last_modified, ctime(&now));
+        file_info.lst_modified = now;
+        file_info.size = fileSize;
+
+					printf("2");
+
+      	updateFileInfo(username, file_info);
+        return;
+      }
+
+      bytesLeft = fileSize;
+
+      while(bytesLeft > 0) {
+        	// lê 1kbyte de dados do arquivo do servidor
+				packet fileRequestBuff;
+    		byteCount = read(socket, &fileRequestBuff, sizeof(struct packet));
+				
+				strcpy(dataBuffer, fileRequestBuff._payload);
+
+    		// escreve no arquivo do cliente os bytes lidos do servidor
+    		if(bytesLeft > KBYTE) {
+    			byteCount = fwrite(dataBuffer, KBYTE, 1, ptrfile);
+    		}
+    		else {
+    			fwrite(dataBuffer, bytesLeft, 1, ptrfile);
+    		}
+    		// decrementa os bytes lidos
+    		bytesLeft -= KBYTE;
+      }
+      fclose(ptrfile);
+
+      time (&now);
+
+      strcpy(file_info.name, file);
+      strcpy(file_info.last_modified, ctime(&now));
+      file_info.lst_modified = now;
+      file_info.size = fileSize;
+
+      updateFileInfo(username, file_info);
+  }
+}
+
+void updateFileInfo(char *username, struct file_info file_info) {
+  struct client_list *client_node;
+  int i;
+
+  if (findNode(username, client_list, &client_node)) {
+    for(i = 0; i < FILE_MAX; i++)
+      if(!strcmp(file_info.name, client_node->client.file_info[i].name)) {
+          client_node->client.file_info[i] = file_info;
+          return;
+        }
+    for(i = 0; i < FILE_MAX; i++) {
+      if(client_node->client.file_info[i].size == -1) {
+        client_node->client.file_info[i] = file_info;
+        break;
+      }
+    }
+  }
 }

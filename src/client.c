@@ -173,43 +173,39 @@ void *sync_thread() {
 	create_sync_sock();
 	get_all_files();
 
-	// while(1)
-	// {
-	//   length = read( notifyfd, buffer, BUF_LEN );
+	while(1) {
+	  length = read( notifyfd, buffer, BUF_LEN );
 
-	//   if ( length < 0 ) {
-	//     perror( "read" );
-	//   }
+	  if ( length < 0 ) {
+	    perror( "read" );
+	  }
 
-	//   while ( i < length ) {
-	//     struct inotify_event *event = ( struct inotify_event * ) &buffer[ i ];
-	//     if ( event->len ) {
-	// 			if ( event->mask & IN_CLOSE_WRITE || event->mask & IN_CREATE || event->mask & IN_MOVED_TO) {
-	// 				strcpy(path, directory);
-	// 				strcat(path, "/");
-	// 				strcat(path, event->name);
-	// 				if(exists(path) && (event->name[0] != '.'))
-	// 				{
-	// 					upload_file(path, sync_socket);
-	// 				}
-	// 			}
-	// 			else if (event->mask & IN_DELETE || event->mask & IN_MOVED_FROM)
-	// 			{
-	// 				strcpy(path, directory);
-	// 				strcat(path, "/");
-	// 				strcat(path, event->name);
-	// 				if(event->name[0] != '.')
-	// 				{
-	// 					delete_file_request(path, sync_socket);
-	// 				}
-	// 			}
-	//     }
-	//     i += EVENT_SIZE + event->len;
-  	// }
-	// 	i = 0;
+	  while ( i < length ) {
+	    struct inotify_event *event = ( struct inotify_event * ) &buffer[ i ];
+	    if ( event->len ) {
+				if ( event->mask & IN_CLOSE_WRITE || event->mask & IN_CREATE || event->mask & IN_MOVED_TO) {
+					strcpy(path, directory);
+					strcat(path, "/");
+					strcat(path, event->name);
+					if(exists(path) && (event->name[0] != '.')) {
+						upload_file(path, sync_socket);
+					}
+				}
+				else if (event->mask & IN_DELETE || event->mask & IN_MOVED_FROM) {
+					strcpy(path, directory);
+					strcat(path, "/");
+					strcat(path, event->name);
+					// if(event->name[0] != '.') {
+					// 	delete_file_request(path, sync_socket);
+					// }
+				}
+	    }
+	    i += EVENT_SIZE + event->len;
+  	}
+		i = 0;
 
-	// 	sleep(10);
-	// }
+		sleep(10);
+	}
 }
 
 void initializeNotifyDescription() {
@@ -287,8 +283,7 @@ void get_all_files() {
 	}
 }
 
-int create_sync_sock()
-{
+int create_sync_sock() {
 	int byteCount, connected;
 	struct sockaddr_in server_addr;
 	struct hostent *server;
@@ -328,7 +323,6 @@ int create_sync_sock()
 
     packet userPacket;
     userPacket.type = RESP;
-    // userPacket.payloadCommand = SHOULD_CREATE_THREAD;
     strcpy(userPacket._payload, username);
 	//envia username para o servidor
     byteCount = write(sync_socket, &userPacket, sizeof(struct packet));
@@ -341,24 +335,18 @@ int create_sync_sock()
 }
 
 // função que extrai o nome do arquivo a partir de um pathname
-void getFilename(char *pathname, char *filename)
-{
+void getFilename(char *pathname, char *filename) {
 	char *filenameAux;
 
 	filenameAux = strtok(pathname, "/");
-
 	strcpy(filename, filenameAux);
-
-	while(filenameAux != NULL)
-	{
+	while(filenameAux != NULL) {
 		strcpy(filename, filenameAux);
-
 		filenameAux = strtok(NULL, "/");
 	}
 }
 
-time_t getFileModifiedTime(char *path)
-{
+time_t getFileModifiedTime(char *path) {
     struct stat attr;
     if (stat(path, &attr) == 0)
     {
@@ -367,8 +355,7 @@ time_t getFileModifiedTime(char *path)
     return 0;
 }
 
-int exists(const char *fname)
-{
+int exists(const char *fname) {
     FILE *file;
     if (file = fopen(fname, "rb"))
     {
@@ -394,36 +381,32 @@ void delete_file_request(char* file, int socket)
 		printf("ERROR sending delete file request\n");
 }
 
-void upload_file(char *file, int socket)
-{
+void upload_file(char *file, int socket) {
 	int byteCount, fileSize;
 	FILE* ptrfile;
 	char dataBuffer[KBYTE];
     packet threadRequest;
 
-	if (ptrfile = fopen(file, "rb"))
-	{
+	if (ptrfile = fopen(file, "rb")) {
 			getFilename(file, threadRequest._payload);
             threadRequest.type = RESP;
             threadRequest.payloadCommand = UPLOAD;
             threadRequest.length = getFileSize(ptrfile);
             write(socket, &threadRequest, sizeof(struct packet));
 
-
-			// escreve número de bytes do arquivo
-			byteCount = write(socket, &fileSize, sizeof(fileSize));
-
-			if (fileSize == 0)
-			{
+			if (fileSize == 0) {
 				fclose(ptrfile);
 				return;
 			}
 
-			while(!feof(ptrfile))
-			{
+			while(!feof(ptrfile)) {
 					fread(dataBuffer, sizeof(dataBuffer), 1, ptrfile);
 
-					byteCount = write(socket, dataBuffer, KBYTE);
+					packet fileRequestBuff;
+					fileRequestBuff.type = DATA;
+					strcpy(fileRequestBuff._payload, dataBuffer);
+					fileRequestBuff.length = KBYTE;
+					byteCount = write(socket, &fileRequestBuff, sizeof(struct packet));
 					if(byteCount < 0)
 						printf("ERROR sending file\n");
 			}
@@ -433,8 +416,7 @@ void upload_file(char *file, int socket)
 				printf("the file has been uploaded\n");
 	}
 	// arquivo não existe
-	else
-	{
+	else {
 		printf("ERROR this file doesn't exist\n\n");
 	}
 }
@@ -449,8 +431,7 @@ int getFileSize(FILE *ptrfile) {
 	return size;
 }
 
-void client_interface()
-{
+void client_interface() {
 	int command = 0;
 	char request[200], file[200];
 
