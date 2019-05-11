@@ -33,3 +33,6 @@ struct client_list
 
 void insertList(struct client_list **client_list, struct client client);
 int initializeClientList();
+void *client_thread (void *socket);
+int initializeClient(int client_socket, char *username, struct client *client);
+int findNode(char *username, struct client_list *client_list, struct client_list **client_node);

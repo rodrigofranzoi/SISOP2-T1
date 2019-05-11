@@ -5,6 +5,7 @@ struct client_list *client_list;
 int main(int argc, char *argv[]) {
 	int sockfd, newsockfd, n;
 	socklen_t clilen;
+	pthread_t clientThread, syncThread;
 	struct sockaddr_in serv_addr, cli_addr;
 
 	//Inicializando a lista de clients
@@ -42,9 +43,10 @@ int main(int argc, char *argv[]) {
 	} 
 	
 	if(responseThread.shouldCreateThread) {
-		printf("payload: %s \n\n", responseThread._payload);
-		printf("thread true \n");
-		printf("thread true \n");
+      if(pthread_create(&clientThread, NULL, client_thread, &newsockfd)) {
+        printf("ERROR creating thread\n");
+        return -1;
+      }
 	} else {
 		printf("payload: %s \n\n", responseThread._payload);
 		printf("thread false \n");
@@ -145,4 +147,108 @@ void insertList(struct client_list **client_list, struct client client) {
 		}
 		client_list_aux->next = client_node;
 	}
+}
+
+void *client_thread (void *socket) {
+  int byteCount, connected;
+  int *client_socket = (int*)socket;
+  char username[USER_MAX_NAME];
+  struct client client;
+  struct packet clientThread;
+
+  // lê os dados de um cliente
+  byteCount = read(*client_socket, &clientThread, sizeof(struct packet));
+  strcpy(username, clientThread._payload);
+  
+  // erro de leitura
+  if (byteCount < 1)
+    printf("ERROR reading from socket\n");
+
+  // inicializa estrutura do client
+  if (initializeClient(*client_socket, username, &client) > 0)
+  {
+	// avisamos cliente que conseguiu conectar  
+	struct packet conSucc;
+	strcpy(conSucc._payload, "1");
+	conSucc.type = RESP;
+	byteCount = write(*client_socket, &conSucc, sizeof(struct packet));
+      if (byteCount < 0) {
+		printf("ERROR sending connected message\n");
+	  }
+    
+	printf("%s connected!\n", username);
+  }
+  else {
+    // avisa cliente que não conseguimos conectar
+	struct packet conSucc;
+	strcpy(conSucc._payload, "0");
+	conSucc.type = RESP;
+	byteCount = write(*client_socket, &conSucc, sizeof(struct packet));
+	if (byteCount < 0) {
+		printf("ERROR sending connected message\n");
+	}
+    return NULL;
+  }
+
+//   listen_client(*client_socket, username);
+}
+
+int initializeClient(int client_socket, char *username, struct client *client) {
+  struct client_list *client_node;
+  struct stat sb;
+  int i;
+
+  // não encontrou na lista ---- NEW CLIENT
+  if (!findNode(username, client_list, &client_node)) {
+    client->devices[0] = client_socket;
+    client->devices[1] = DEVICE_FREE;
+    strcpy(client->username, username);
+
+    for(i = 0; i < FILE_MAX; i++) {
+      client->file_info[i].size = -1;
+    }
+    client->logged = 1;
+
+    // insere cliente na lista de client
+    insertList(&client_list, *client);
+  }
+  // encontrou CLIENT na lista, atualiza device
+  else {
+    if(client_node->client.devices[0] == DEVICE_FREE) {
+      client_node->client.devices[0] = client_socket;
+    } else if (client_node->client.devices[1] == DEVICE_FREE) {
+      client_node->client.devices[1] = client_socket;
+    }
+    // caso em que cliente já está conectado em 2 dipostivos
+    else return -1;
+  }
+
+  if (stat(username, &sb) == 0 && S_ISDIR(sb.st_mode)) {
+    // usuário já tem o diretório com o seu nome
+  } else {
+    if (mkdir(username, 0777) < 0) {
+      // erro
+      if (errno != EEXIST)
+        printf("ERROR creating directory\n");
+    }
+    // diretório não existe
+    else {
+      printf("Creating %s directory...\n", username);
+    }
+  }
+
+  return 1;
+}
+
+int findNode(char *username, struct client_list *client_list, struct client_list **client_node) {
+	struct client_list *client_list_aux = client_list;
+	while(client_list_aux != NULL) {
+		if (strcmp(username, client_list_aux->client.username) == 0) {
+			*client_node = client_list_aux;
+			return 1;
+		}
+		else
+			client_list_aux = client_list_aux->next;
+	}
+	return 0;
 }

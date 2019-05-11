@@ -20,37 +20,8 @@ int main(int argc, char *argv[])
     if(initHost(argv, argc) == -1) exit(0);
 
     connect_server(host, port);
-    // if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) 
-    //     printf("ERROR opening socket\n");
-    
-	// serv_addr.sin_family = AF_INET;     
-	// serv_addr.sin_port = htons(PORT);    
-	// serv_addr.sin_addr = *((struct in_addr *)server->h_addr);
-	// bzero(&(serv_addr.sin_zero), 8);     
-	
-    
-	// if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) 
-    //     printf("ERROR connecting\n");
 
-    // printf("Enter the message: ");
-    // bzero(buffer, 256);
-    // fgets(buffer, 256, stdin);
-    
-	// /* write in the socket */
-	// n = write(sockfd, buffer, strlen(buffer));
-    // if (n < 0) 
-	// 	printf("ERROR writing to socket\n");
 
-    // bzero(buffer,256);
-	
-	// /* read from the socket */
-    // n = read(sockfd, buffer, 256);
-    // if (n < 0) 
-	// 	printf("ERROR reading from socket\n");
-
-    // printf("%s\n",buffer);
-    
-	// close(sockfd);
     return 0;
 }
 
@@ -114,16 +85,14 @@ int connect_server (char *host, int port) {
 		return -1;
 	}
 
-    // packet threadSetter;
-
-    // threadSetter.type = RESP;
-    // strcpy(threadSetter._payload, SHOULD_CREATE_THREAD);
-
-	// write(sockfd, &threadSetter, sizeof(struct packet));
+    packet threadSetter;
+    threadSetter.type = RESP;
+    threadSetter.shouldCreateThread = SHOULD_CREATE_THREAD;
+	write(sockfd, &threadSetter, sizeof(struct packet));
 
     packet userPacket;
     userPacket.type = RESP;
-    userPacket.shouldCreateThread = SHOULD_CREATE_THREAD;
+    // userPacket.shouldCreateThread = SHOULD_CREATE_THREAD;
     strcpy(userPacket._payload, username);
 	//envia username para o servidor
     socketByteSize = write(sockfd, &userPacket, sizeof(struct packet));
@@ -139,7 +108,7 @@ int connect_server (char *host, int port) {
         if (socketByteSize < 0){
             printf("ERROR receiving connected message\n");
             return -1;
-        } else if (1) {
+        } else if (connected._payload - '0') {
             printf("connected\n");
             return 1;
         } else {
