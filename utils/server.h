@@ -41,3 +41,4 @@ void send_all_files(int client_socket, char *username);
 int getFileSize(FILE *ptrfile);
 void receive_file(struct packet responseThread, int socket, char*username);
 void updateFileInfo(char *username, struct file_info file_info);
+void delete_file(char *file, int socket, char *username);

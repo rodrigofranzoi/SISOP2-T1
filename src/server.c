@@ -286,7 +286,7 @@ void listen_sync(int client_socket, char *username) {
       switch (responseThread.payloadCommand) {
         case UPLOAD: receive_file(responseThread, client_socket, username); break;
         case DOWNLOADALL: send_all_files(client_socket, username); break;
-        case DELETE: printf("RECEIVE DOWNLOADALL CMD"); break;
+        case DELETE: delete_file(responseThread._payload, client_socket, username); break;
         case EXIT: ;break;
         default: break;
       }
@@ -440,4 +440,24 @@ void updateFileInfo(char *username, struct file_info file_info) {
       }
     }
   }
+}
+
+void delete_file(char *file, int socket, char *username) {
+  int byteCount;
+  FILE *ptrfile;
+  char path[200];
+  struct file_info file_info;
+
+  strcpy(path, username);
+  strcat(path, "/");
+  strcat(path, file);
+
+  if(remove(path) != 0) {
+    printf("Error: unable to delete the %s file\n", file);
+  }
+
+  strcpy(file_info.name, file);
+  file_info.size = -1;
+
+  updateFileInfo(username, file_info);
 }

@@ -184,6 +184,7 @@ void *sync_thread() {
 	    struct inotify_event *event = ( struct inotify_event * ) &buffer[ i ];
 	    if ( event->len ) {
 				if ( event->mask & IN_CLOSE_WRITE || event->mask & IN_CREATE || event->mask & IN_MOVED_TO) {
+					printf("New File Event\n");
 					strcpy(path, directory);
 					strcat(path, "/");
 					strcat(path, event->name);
@@ -192,12 +193,13 @@ void *sync_thread() {
 					}
 				}
 				else if (event->mask & IN_DELETE || event->mask & IN_MOVED_FROM) {
+					printf("Delete File Event\n");
 					strcpy(path, directory);
 					strcat(path, "/");
 					strcat(path, event->name);
-					// if(event->name[0] != '.') {
-					// 	delete_file_request(path, sync_socket);
-					// }
+					if(event->name[0] != '.') {
+						delete_file_request(path, sync_socket);
+					}
 				}
 	    }
 	    i += EVENT_SIZE + event->len;
@@ -365,8 +367,7 @@ int exists(const char *fname) {
     return 0;
 }
 
-void delete_file_request(char* file, int socket)
-{
+void delete_file_request(char* file, int socket) {
 	int byteCount;
 
     packet threadRequest;
