@@ -18,6 +18,14 @@
 #define FILE_MAX 20
 #define FILENAME_MAX_SIZE 20
 
+#define DELETE 6
+#define DOWNLOADALL 5
+#define EXIT 4
+#define SYNC 3
+#define LIST 2
+#define DOWNLOAD 1
+#define UPLOAD 0
+
 // server
 #define PORT 4000
 

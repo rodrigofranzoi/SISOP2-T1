@@ -56,12 +56,12 @@ int main(int argc, char *argv[]) {
 
 
 
-	/* write in the socket */ 
-	struct packet connected;
-	strcpy(connected._payload, "1");
-	connected.type = RESP;
-	n = write(newsockfd, &connected, sizeof(struct packet));
-	close(newsockfd);
+	// /* write in the socket */ 
+	// struct packet connected;
+	// connected.payloadCommand = 1;
+	// connected.type = RESP;
+	// n = write(newsockfd, &connected, sizeof(struct packet));
+	// close(newsockfd);
 
 	}
 	close(sockfd);
@@ -160,6 +160,7 @@ void *client_thread (void *socket) {
   // lê os dados de um cliente
   byteCount = read(*client_socket, &clientThread, sizeof(struct packet));
   strcpy(username, clientThread._payload);
+  printf("username %s \n", username);
   
   // erro de leitura
   if (byteCount < 1)
@@ -170,11 +171,11 @@ void *client_thread (void *socket) {
   {
 	// avisamos cliente que conseguiu conectar  
 	struct packet conSucc;
-	strcpy(conSucc._payload, "1");
+	conSucc.payloadCommand = 1;
 	conSucc.type = RESP;
 	byteCount = write(*client_socket, &conSucc, sizeof(struct packet));
       if (byteCount < 0) {
-		printf("ERROR sending connected message\n");
+		printf("ERROR sending connected message 1\n");
 	  }
     
 	printf("%s connected!\n", username);
@@ -182,11 +183,11 @@ void *client_thread (void *socket) {
   else {
     // avisa cliente que não conseguimos conectar
 	struct packet conSucc;
-	strcpy(conSucc._payload, "0");
+	conSucc.payloadCommand = 0;
 	conSucc.type = RESP;
 	byteCount = write(*client_socket, &conSucc, sizeof(struct packet));
 	if (byteCount < 0) {
-		printf("ERROR sending connected message\n");
+		printf("ERROR sending connected message 2\n");
 	}
     return NULL;
   }
@@ -226,6 +227,7 @@ int initializeClient(int client_socket, char *username, struct client *client) {
 
   if (stat(username, &sb) == 0 && S_ISDIR(sb.st_mode)) {
     // usuário já tem o diretório com o seu nome
+	 printf("User %s Already Have Dir\n", username);
   } else {
     if (mkdir(username, 0777) < 0) {
       // erro
@@ -268,5 +270,26 @@ void *sync_thread_sv(void *socket) {
   if (byteCount < 1)
     printf("ERROR reading from socket\n");
 
-//   listen_sync(*client_socket, username); TODO
+   listen_sync(*client_socket, username);
+}
+
+void listen_sync(int client_socket, char *username) {
+  int byteCount, command;
+  struct packet responseThread;
+
+  do {	  	
+	/* read from the socket */
+	byteCount = read(client_socket, &responseThread, sizeof(struct packet));
+	if (byteCount < 0) {
+		printf("ERROR reading from socket");
+	} 
+
+      switch (responseThread.payloadCommand) {
+        case UPLOAD: printf("RECEIVE UPLOAD CMD"); break;
+        case DOWNLOADALL: printf("RECEIVE DOWNLOADALL CMD"); break;
+        case DELETE: printf("RECEIVE DOWNLOADALL CMD"); break;
+        case EXIT: ;break;
+        default: break;
+      }
+  } while(responseThread.payloadCommand != EXIT);
 }

@@ -25,15 +25,12 @@ int main(int argc, char *argv[])
     //Verifica os parametros e configura o host
     if(initHost(argv, argc) == -1) exit(0);
 
-    //connect_server(host, port);
-
-    if ((connect_server(host, port)) > 0)
-	{
+    if ((connect_server(host, port)) > 0) {
 		// sincroniza diretório do servidor com o do cliente
 		sync_client_first();
 
 		// espera por um comando de usuário
-		//client_interface();
+		client_interface();
     }
 
 
@@ -107,8 +104,8 @@ int connect_server (char *host, int port) {
 
     packet userPacket;
     userPacket.type = RESP;
-    // userPacket.payloadCommand = SHOULD_CREATE_THREAD;
     strcpy(userPacket._payload, username);
+
 	//envia username para o servidor
     socketByteSize = write(sockfd, &userPacket, sizeof(struct packet));
     if (socketByteSize < 0) {
@@ -119,11 +116,11 @@ int connect_server (char *host, int port) {
 	socketByteSize = read(sockfd, &connected, sizeof(struct packet));
 
     if(connected.type ==  RESP){
-        printf("respo payload %s", connected._payload);
+        printf("respo payload %d\n", connected.payloadCommand);
         if (socketByteSize < 0){
             printf("ERROR receiving connected message\n");
             return -1;
-        } else if (connected._payload - '0') {
+        } else if (connected.payloadCommand) {
             printf("connected\n");
             return 1;
         } else {
@@ -168,64 +165,63 @@ void sync_client_first() {
 	}
 }
 
-void *sync_thread()
-{
+void *sync_thread() {
+    printf("Entra eeeeeeeeeeeeeeeeeeeeeeee\n");
 	int length, i = 0;
     char buffer[BUF_LEN];
 	char path[200];
 
+    printf("Entra dentro de sync\n");
 	create_sync_sock();
 	get_all_files();
 
-	while(1)
-	{
-	  length = read( notifyfd, buffer, BUF_LEN );
+	// while(1)
+	// {
+	//   length = read( notifyfd, buffer, BUF_LEN );
 
-	  if ( length < 0 ) {
-	    perror( "read" );
-	  }
+	//   if ( length < 0 ) {
+	//     perror( "read" );
+	//   }
 
-	  while ( i < length ) {
-	    struct inotify_event *event = ( struct inotify_event * ) &buffer[ i ];
-	    if ( event->len ) {
-				if ( event->mask & IN_CLOSE_WRITE || event->mask & IN_CREATE || event->mask & IN_MOVED_TO) {
-					strcpy(path, directory);
-					strcat(path, "/");
-					strcat(path, event->name);
-					if(exists(path) && (event->name[0] != '.'))
-					{
-						//upload_file(path, sync_socket); TODO
-					}
-				}
-				else if (event->mask & IN_DELETE || event->mask & IN_MOVED_FROM)
-				{
-					strcpy(path, directory);
-					strcat(path, "/");
-					strcat(path, event->name);
-					if(event->name[0] != '.')
-					{
-						//delete_file_request(path, sync_socket); TODO
-					}
-				}
-	    }
-	    i += EVENT_SIZE + event->len;
-  	}
-		i = 0;
+	//   while ( i < length ) {
+	//     struct inotify_event *event = ( struct inotify_event * ) &buffer[ i ];
+	//     if ( event->len ) {
+	// 			if ( event->mask & IN_CLOSE_WRITE || event->mask & IN_CREATE || event->mask & IN_MOVED_TO) {
+	// 				strcpy(path, directory);
+	// 				strcat(path, "/");
+	// 				strcat(path, event->name);
+	// 				if(exists(path) && (event->name[0] != '.'))
+	// 				{
+	// 					upload_file(path, sync_socket);
+	// 				}
+	// 			}
+	// 			else if (event->mask & IN_DELETE || event->mask & IN_MOVED_FROM)
+	// 			{
+	// 				strcpy(path, directory);
+	// 				strcat(path, "/");
+	// 				strcat(path, event->name);
+	// 				if(event->name[0] != '.')
+	// 				{
+	// 					delete_file_request(path, sync_socket);
+	// 				}
+	// 			}
+	//     }
+	//     i += EVENT_SIZE + event->len;
+  	// }
+	// 	i = 0;
 
-		sleep(10);
-	}
+	// 	sleep(10);
+	// }
 }
 
-void initializeNotifyDescription()
-{
+void initializeNotifyDescription() {
 	notifyfd = inotify_init();
 
 	watchfd = inotify_add_watch(notifyfd, directory, IN_CLOSE_WRITE | IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO);
 }
 
 
-void get_all_files()
-{
+void get_all_files() {
 	int byteCount, bytesLeft, fileSize, fileNum, i;
 	struct client_request clientRequest;
 	FILE* ptrfile;
@@ -323,7 +319,7 @@ int create_sync_sock()
 
     packet threadSetter;
     threadSetter.type = RESP;
-    threadSetter.payloadCommand = SHOULD_CREATE_THREAD;
+    threadSetter.payloadCommand = 0;
 	write(sync_socket, &threadSetter, sizeof(struct packet));
 
     packet userPacket;
@@ -376,4 +372,107 @@ int exists(const char *fname)
         return 1;
     }
     return 0;
+}
+
+void delete_file_request(char* file, int socket)
+{
+	int byteCount;
+
+    packet threadRequest;
+    threadRequest.type = CMD;
+    threadRequest.payloadCommand = DELETE;
+
+	getFilename(file, threadRequest._payload);
+
+	byteCount = write(socket, &threadRequest, sizeof(struct packet));
+
+	if (byteCount < 0)
+		printf("ERROR sending delete file request\n");
+}
+
+void upload_file(char *file, int socket)
+{
+	int byteCount, fileSize;
+	FILE* ptrfile;
+	char dataBuffer[KBYTE];
+    packet threadRequest;
+
+	if (ptrfile = fopen(file, "rb"))
+	{
+			getFilename(file, threadRequest._payload);
+            threadRequest.type = RESP;
+            threadRequest.payloadCommand = UPLOAD;
+            threadRequest.length = getFileSize(ptrfile);
+            write(socket, &threadRequest, sizeof(struct packet));
+
+
+			// escreve número de bytes do arquivo
+			byteCount = write(socket, &fileSize, sizeof(fileSize));
+
+			if (fileSize == 0)
+			{
+				fclose(ptrfile);
+				return;
+			}
+
+			while(!feof(ptrfile))
+			{
+					fread(dataBuffer, sizeof(dataBuffer), 1, ptrfile);
+
+					byteCount = write(socket, dataBuffer, KBYTE);
+					if(byteCount < 0)
+						printf("ERROR sending file\n");
+			}
+			fclose(ptrfile);
+
+			if (socket != sync_socket)
+				printf("the file has been uploaded\n");
+	}
+	// arquivo não existe
+	else
+	{
+		printf("ERROR this file doesn't exist\n\n");
+	}
+}
+
+int getFileSize(FILE *ptrfile) {
+	int size;
+
+	fseek(ptrfile, 0L, SEEK_END);
+	size = ftell(ptrfile);
+	rewind(ptrfile);
+
+	return size;
+}
+
+void client_interface()
+{
+	int command = 0;
+	char request[200], file[200];
+
+    while(1){
+
+    }
+
+	// printf("\nCommands:\nupload <path/filename.ext>\ndownload <filename.ext>\nlist\nget_sync_dir\nexit\n");
+	// do
+	// {
+	// 	printf("\ntype your command: ");
+
+	// 	fgets(request, sizeof(request), stdin);
+
+	// 	command = commandRequest(request, file);
+
+	// 	// verifica requisição do cliente
+	// 	switch (command)
+	// 	{
+	// 		case LIST: show_files(); break;
+	// 		case EXIT: close_connection();break;
+	// 		case SYNC: get_all_files();break;
+	// 		case DOWNLOAD: get_file(file);break;
+	// 	  case UPLOAD: upload_file(file, sockfd); break;
+
+	// 		default: printf("ERROR invalid command\n");
+	// 	}
+	// }while(command != EXIT);
 }
