@@ -372,22 +372,10 @@ void receive_file(struct packet responseThread, int socket, char*username) {
   time_t now;
 	
 	fileSize = responseThread.length;
-
-	printf("file zie %d \n", fileSize);
-	printf("user %s\n", username);
-	printf("filename %s\n", responseThread._payload);
-
 	strcpy(file, responseThread._payload);
-	printf("1\n");
   strcpy(path, username);
-	printf("2\n");
   strcat(path, "/");
-	printf("3\n");
   strcat(path, file);
-
-	printf("path %s\n", path);
-
-	printf("-1");
 
   if (ptrfile = fopen(path, "wb")) {
 
@@ -398,8 +386,6 @@ void receive_file(struct packet responseThread, int socket, char*username) {
         strcpy(file_info.last_modified, ctime(&now));
         file_info.lst_modified = now;
         file_info.size = fileSize;
-
-					printf("2");
 
       	updateFileInfo(username, file_info);
         return;
