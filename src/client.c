@@ -443,7 +443,7 @@ void client_interface() {
 		switch (command)
 		{
 			case LIST: show_files(); break;
-			case EXIT: printf("CLose COnnection \n"); break;
+			case EXIT: close_connection(); break;
 			case SYNC: printf("Get All Files  \n"); break;
 			case DOWNLOAD: printf("DOwnload  \n"); break;
 		    case UPLOAD: printf("Upload  \n"); break;
@@ -513,4 +513,28 @@ void show_files() {
 		printf("-------------");
 		printf("\nFile: %s \nLast modified: %s \nsize: %d\n", file_info.name, file_info.last_modified, file_info.size);
 	}
+}
+
+void close_connection() {
+	int byteCount;
+	struct client_request clientRequest;
+
+	clientRequest.command = EXIT;
+
+	packet clientCMDRequest;
+	clientCMDRequest.type = CMD;
+	clientCMDRequest.payloadCommand = EXIT;
+	
+	//Disconect ASYNC
+	byteCount = write(sockfd, &clientCMDRequest, sizeof(struct packet));
+	if (byteCount < 0)
+		printf("Error sending LIST message to server\n");
+	
+	//Disconect SYNC
+	byteCount = write(sync_socket, &clientCMDRequest, sizeof(struct packet));
+	if (byteCount < 0)
+		printf("Error sending LIST message to server\n");
+
+	close(sockfd);
+	printf("Connection with server has been closed\n");
 }

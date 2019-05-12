@@ -192,15 +192,39 @@ void listen_client(int client_socket, char *username) {
   do {
       byteCount = read(client_socket, &clientRequest, sizeof(struct packet));
     
-			printf("Command CLient %d", clientRequest.payloadCommand);
       switch (clientRequest.payloadCommand) {
         case LIST: send_file_info(client_socket, username); break;
         case DOWNLOAD: printf("DOwnload CMD\n"); break;
         case UPLOAD: printf("UPLOAD CMD\n"); break;
-        case EXIT: printf("Exit CMD\n"); break;
+        case EXIT: close_client_connection(client_socket, username); break;
   //      default: printf("ERROR invalid command\n");
       }
   } while(clientRequest.payloadCommand != EXIT);
+}
+
+void close_client_connection(int socket, char *username) {
+  struct client_list *client_node;
+	int i, fileNum = 0;
+
+  printf("Disconnecting %s\n", username);
+
+	if (findNode(username, client_list, &client_node))
+	{
+    if(client_node->client.devices[0] == DEVICE_FREE)
+    {
+      client_node->client.devices[1] = DEVICE_FREE;
+      client_node->client.logged = 0;
+    }
+    else if (client_node->client.devices[1] == DEVICE_FREE)
+    {
+      client_node->client.devices[0] = DEVICE_FREE;
+      client_node->client.logged = 0;
+    }
+    else if (client_node->client.devices[0] == socket)
+      client_node->client.devices[0] = DEVICE_FREE;
+    else
+      client_node->client.devices[1] = DEVICE_FREE;
+  }
 }
 
 void send_file_info(int socket, char *username) {
@@ -215,7 +239,6 @@ void send_file_info(int socket, char *username) {
 				fileNum++;
 		}
 
-		printf("Count File %d\n", fileNum);
 		struct packet clientListNum;
 		clientListNum.type = DATA;
 		clientListNum.payloadCommand = fileNum;

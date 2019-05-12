@@ -22,3 +22,4 @@ void upload_file(char *file, int socket);
 void client_interface();
 int commandRequest(char *request, char *file);
 void show_files();
+void close_connection();

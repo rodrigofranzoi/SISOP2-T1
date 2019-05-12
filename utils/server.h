@@ -33,3 +33,4 @@ void delete_file(char *file, int socket, char *username);
 void listen_client(int client_socket, char *username);
 void show_files();
 void send_file_info(int socket, char *username);
+void close_client_connection(int socket, char *username);
