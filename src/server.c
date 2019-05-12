@@ -194,13 +194,51 @@ void listen_client(int client_socket, char *username) {
     
       switch (clientRequest.payloadCommand) {
         case LIST: send_file_info(client_socket, username); break;
-        case DOWNLOAD: printf("DOwnload CMD\n"); break;
+        case DOWNLOAD: send_file(clientRequest._payload, client_socket, username); break;
         case UPLOAD: printf("UPLOAD CMD\n"); break;
         case EXIT: close_client_connection(client_socket, username); break;
   //      default: printf("ERROR invalid command\n");
       }
   } while(clientRequest.payloadCommand != EXIT);
 }
+
+void send_file(char *file, int socket, char *username) {
+	int byteCount, bytesLeft, fileSize;
+	FILE* ptrfile;
+	char dataBuffer[KBYTE], path[KBYTE];
+
+  strcpy(path, username);
+  strcat(path, "/");
+  strcat(path, file);
+
+  if (ptrfile = fopen(path, "rb")) {
+      fileSize = getFileSize(ptrfile);
+
+			packet clientCMDSize;
+			clientCMDSize.length = fileSize;
+    	byteCount = write(socket, &clientCMDSize, sizeof(struct packet));
+
+      while(!feof(ptrfile)) {
+					fread(dataBuffer, sizeof(dataBuffer), 1, ptrfile);
+					
+					packet clientCMDData;
+					strcpy(clientCMDData._payload, dataBuffer);
+
+          byteCount = write(socket, &clientCMDData, sizeof(struct packet));
+          if(byteCount < 0)
+            printf("ERROR sending file\n");
+      }
+      fclose(ptrfile);
+  }
+  // arquivo não existe
+  else {
+    fileSize = -1;
+		packet clientCMDSize;
+		clientCMDSize.length = fileSize;
+    byteCount = write(socket, &clientCMDSize, sizeof(struct packet));
+  }
+}
+
 
 void close_client_connection(int socket, char *username) {
   struct client_list *client_node;

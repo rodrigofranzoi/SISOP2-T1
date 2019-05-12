@@ -445,12 +445,70 @@ void client_interface() {
 			case LIST: show_files(); break;
 			case EXIT: close_connection(); break;
 			case SYNC: printf("Get All Files  \n"); break;
-			case DOWNLOAD: printf("DOwnload  \n"); break;
+			case DOWNLOAD: get_file(file); break;
 		    case UPLOAD: printf("Upload  \n"); break;
 
 			default: printf("ERROR invalid command\n");
 		}
 	}while(command != EXIT);
+}
+
+void get_file(char *file) {
+	int byteCount, bytesLeft, fileSize;
+	struct client_request clientRequest;
+	FILE* ptrfile;
+	char dataBuffer[KBYTE];
+
+	// copia nome do arquivo e comando para enviar para o servidor
+	packet clientCMDRequest;
+	clientCMDRequest.type = CMD;
+	clientCMDRequest.payloadCommand = DOWNLOAD;
+	strcpy(clientCMDRequest._payload, file);
+
+	byteCount = write(sockfd, &clientCMDRequest, sizeof(struct packet));
+	if (byteCount < 0)
+		printf("Error sending DOWNLOAD message to server\n");
+
+
+	// lê estrutura do arquivo que será lido do servidor
+	packet clientCMDSize;
+	byteCount = read(sockfd, &clientCMDSize, sizeof(struct packet));
+	if (byteCount < 0){
+		printf("Error receiving filesize\n");
+	}
+	fileSize = clientCMDSize.length;
+
+	if (fileSize < 0) {
+		printf("The file doesn't exist\n\n\n");
+		return;
+	}
+	// cria arquivo no diretório do cliente
+	ptrfile = fopen(file, "wb");
+
+	// número de bytes que faltam ser lidos
+	bytesLeft = fileSize;
+
+	while(bytesLeft > 0) {
+		// lê 1kbyte de dados do arquivo do servidor
+		packet clientCMDData;
+		byteCount = read(sockfd, &clientCMDData, sizeof(struct packet));
+		strcpy(dataBuffer, clientCMDData._payload);
+
+		// escreve no arquivo do cliente os bytes lidos do servidor
+		if(bytesLeft > KBYTE)
+		{
+			byteCount = fwrite(dataBuffer, KBYTE, 1, ptrfile);
+		}
+		else
+		{
+			fwrite(dataBuffer, bytesLeft, 1, ptrfile);
+		}
+		// decrementa os bytes lidos
+		bytesLeft -= KBYTE;
+	}
+
+	fclose(ptrfile);
+	printf("File %s has been downloaded\n\n", file);
 }
 
 int commandRequest(char *request, char *file) {
@@ -517,14 +575,11 @@ void show_files() {
 
 void close_connection() {
 	int byteCount;
-	struct client_request clientRequest;
-
-	clientRequest.command = EXIT;
 
 	packet clientCMDRequest;
 	clientCMDRequest.type = CMD;
 	clientCMDRequest.payloadCommand = EXIT;
-	
+
 	//Disconect ASYNC
 	byteCount = write(sockfd, &clientCMDRequest, sizeof(struct packet));
 	if (byteCount < 0)
