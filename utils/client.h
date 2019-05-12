@@ -1,10 +1,9 @@
 #define SHOULD_CREATE_THREAD 1
 
-
-
-
 #define EVENT_SIZE  ( sizeof (struct inotify_event) )
 #define BUF_LEN ( 1024 * ( EVENT_SIZE + 16 ) )
+
+char commands[5][13] = {"upload", "download", "list", "get_sync_dir", "exit"};
 
 int initHost(char *argv[], int argc);
 int connect_server (char *host, int port);
@@ -21,3 +20,5 @@ void delete_file_request(char* file, int socket);
 int getFileSize(FILE *ptrfile);
 void upload_file(char *file, int socket);
 void client_interface();
+int commandRequest(char *request, char *file);
+void show_files();

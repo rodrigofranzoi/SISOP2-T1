@@ -27,44 +27,34 @@ int main(int argc, char *argv[]) {
 	listen(sockfd, 5);
 	clilen = sizeof(struct sockaddr_in);
 	while(1) {
-	if ((newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen)) == -1){
-		printf("ERROR on accept");
-		return -1;
-	} 
+		if ((newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen)) == -1){
+			printf("ERROR on accept");
+			return -1;
+		} 
+			
 		
-	
-	struct packet responseThread;
-	bzero(&responseThread, sizeof(struct packet));
-	
-	/* read from the socket */
-	n = read(newsockfd, &responseThread, sizeof(struct packet));
-	if (n < 0) {
-		printf("ERROR reading from socket");
-	} 
-	
-	if(responseThread.payloadCommand) {
-      if(pthread_create(&clientThread, NULL, client_thread, &newsockfd)) {
-        printf("ERROR creating thread\n");
-        return -1;
-      }
-	} else {
-		if(pthread_create(&syncThread, NULL, sync_thread_sv, &newsockfd)) {
-        	printf("ERROR creating sync thread\n");
-        	return -1;
-      	}
+		struct packet responseThread;
+		bzero(&responseThread, sizeof(struct packet));
+		
+		/* read from the socket */
+		n = read(newsockfd, &responseThread, sizeof(struct packet));
+		if (n < 0) {
+			printf("ERROR reading from socket");
+		}
+		
+		if(responseThread.payloadCommand) {
+				if(pthread_create(&clientThread, NULL, client_thread, &newsockfd)) {
+					printf("ERROR creating thread\n");
+					return -1;
+				}
+		} else {
+			if(pthread_create(&syncThread, NULL, sync_thread_sv, &newsockfd)) {
+						printf("ERROR creating sync thread\n");
+						return -1;
+					}
+		}
 	}
-
-
-
-	// /* write in the socket */ 
-	// struct packet connected;
-	// connected.payloadCommand = 1;
-	// connected.type = RESP;
-	// n = write(newsockfd, &connected, sizeof(struct packet));
-	// close(newsockfd);
-
-	}
-	close(sockfd);
+	// close(sockfd);
 	return 0; 
 }
 
@@ -192,7 +182,51 @@ void *client_thread (void *socket) {
     return NULL;
   }
 
-//   listen_client(*client_socket, username); TODO
+  listen_client(*client_socket, username);
+}
+
+void listen_client(int client_socket, char *username) {
+  int byteCount, command;
+	struct packet clientRequest;	
+
+  do {
+      byteCount = read(client_socket, &clientRequest, sizeof(struct packet));
+    
+			printf("Command CLient %d", clientRequest.payloadCommand);
+      switch (clientRequest.payloadCommand) {
+        case LIST: send_file_info(client_socket, username); break;
+        case DOWNLOAD: printf("DOwnload CMD\n"); break;
+        case UPLOAD: printf("UPLOAD CMD\n"); break;
+        case EXIT: printf("Exit CMD\n"); break;
+  //      default: printf("ERROR invalid command\n");
+      }
+  } while(clientRequest.payloadCommand != EXIT);
+}
+
+void send_file_info(int socket, char *username) {
+	struct client_list *client_node;
+	struct client client;
+	int i, fileNum = 0;
+
+	if (findNode(username, client_list, &client_node)) {
+		client = client_node->client;
+		for (i = 0; i < FILE_MAX; i++) {
+			if (client.file_info[i].size != -1)
+				fileNum++;
+		}
+
+		printf("Count File %d\n", fileNum);
+		struct packet clientListNum;
+		clientListNum.type = DATA;
+		clientListNum.payloadCommand = fileNum;
+		write(socket, &clientListNum, sizeof(struct packet));
+
+		for (i = 0; i < FILE_MAX; i++) {
+			if (client.file_info[i].size != -1){
+				write(socket, &client.file_info[i], sizeof(client.file_info[i]));
+			}
+		}
+	}
 }
 
 int initializeClient(int client_socket, char *username, struct client *client) {
@@ -294,8 +328,6 @@ void listen_sync(int client_socket, char *username) {
 }
 
 void send_all_files(int client_socket, char *username) {
-	// printf("Entered SendALl");
-
   int byteCount, bytesLeft, fileSize, fileNum=0, i;
   FILE* ptrfile;
   char dataBuffer[KBYTE], path[KBYTE];

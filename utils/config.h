@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 
 #define KBYTE 1024
+#define FILEEXT_MAX_SIZE 8
 #define USER_MAX_NAME 20
 #define PAYLOAD_SIZE 1024
 #define FILE_MAX 20
@@ -50,4 +51,11 @@ typedef struct packet{
     int payloadCommand;
 } packet;
 
-
+struct file_info {
+  char name[FILENAME_MAX_SIZE];
+  char extension[FILEEXT_MAX_SIZE];
+  char last_modified[20];
+  time_t lst_modified;
+  int size;
+  pthread_mutex_t file_mutex;
+};

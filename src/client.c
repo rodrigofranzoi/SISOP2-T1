@@ -14,8 +14,7 @@ int sockfd = -1, sync_socket = -1;
 int notifyfd;
 int watchfd;
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
 
     struct sockaddr_in serv_addr;
     struct hostent *server;
@@ -65,7 +64,7 @@ int initHost(char *argv[], int argc) {
 
 int connect_server (char *host, int port) {
 
-	int socketByteSize, sockfd;
+	int socketByteSize;
 	struct sockaddr_in server_addr;
 	struct hostent *server;
 	char buffer[256];
@@ -184,7 +183,6 @@ void *sync_thread() {
 	    struct inotify_event *event = ( struct inotify_event * ) &buffer[ i ];
 	    if ( event->len ) {
 				if ( event->mask & IN_CLOSE_WRITE || event->mask & IN_CREATE || event->mask & IN_MOVED_TO) {
-					printf("New File Event\n");
 					strcpy(path, directory);
 					strcat(path, "/");
 					strcat(path, event->name);
@@ -193,7 +191,6 @@ void *sync_thread() {
 					}
 				}
 				else if (event->mask & IN_DELETE || event->mask & IN_MOVED_FROM) {
-					printf("Delete File Event\n");
 					strcpy(path, directory);
 					strcat(path, "/");
 					strcat(path, event->name);
@@ -313,8 +310,7 @@ int create_sync_sock() {
 	bzero(&(server_addr.sin_zero), 8);
 
 	// tenta conectar ao socket
-	if (connect(sync_socket,(struct sockaddr *) &server_addr,sizeof(server_addr)) < 0)
-	{
+	if (connect(sync_socket,(struct sockaddr *) &server_addr,sizeof(server_addr)) < 0){
 		  return -1;
 	}
 
@@ -436,29 +432,85 @@ void client_interface() {
 	int command = 0;
 	char request[200], file[200];
 
-    while(1){
+	printf("\nCommands:\nupload <path/filename.ext>\ndownload <filename.ext>\nlist\nget_sync_dir\nexit\n");
+	do
+	{
+		printf("\ntype your command: ");
+		fgets(request, sizeof(request), stdin);
+		command = commandRequest(request, file);
 
-    }
+		// verifica requisição do cliente
+		switch (command)
+		{
+			case LIST: show_files(); break;
+			case EXIT: printf("CLose COnnection \n"); break;
+			case SYNC: printf("Get All Files  \n"); break;
+			case DOWNLOAD: printf("DOwnload  \n"); break;
+		    case UPLOAD: printf("Upload  \n"); break;
 
-	// printf("\nCommands:\nupload <path/filename.ext>\ndownload <filename.ext>\nlist\nget_sync_dir\nexit\n");
-	// do
-	// {
-	// 	printf("\ntype your command: ");
+			default: printf("ERROR invalid command\n");
+		}
+	}while(command != EXIT);
+}
 
-	// 	fgets(request, sizeof(request), stdin);
+int commandRequest(char *request, char *file) {
+	char *requestAux, *fileAux;
+	int strLen;
 
-	// 	command = commandRequest(request, file);
+	strLen = strlen(request);
+	if ((strLen > 0) && (request[strLen-1] == '\n')) {
+		  request[strLen-1] = '\0';
+	}
 
-	// 	// verifica requisição do cliente
-	// 	switch (command)
-	// 	{
-	// 		case LIST: show_files(); break;
-	// 		case EXIT: close_connection();break;
-	// 		case SYNC: get_all_files();break;
-	// 		case DOWNLOAD: get_file(file);break;
-	// 	  case UPLOAD: upload_file(file, sockfd); break;
+	if (!strcmp(request, commands[LIST]))
+		return LIST;
+	else if (!strcmp(request, commands[EXIT]))
+		return EXIT;
+	else if (!strcmp(request, commands[SYNC]))
+		return SYNC;
 
-	// 		default: printf("ERROR invalid command\n");
-	// 	}
-	// }while(command != EXIT);
+	requestAux = strtok(request, " ");
+	fileAux = strtok(NULL, "\n");
+	if (fileAux != NULL)
+		strcpy(file, fileAux);
+	else
+		return -1;
+
+	if (file != NULL){
+		if (!strcmp(requestAux, commands[DOWNLOAD]))
+			return DOWNLOAD;
+		else if (!strcmp(requestAux, commands[UPLOAD]))
+			return UPLOAD;
+	}
+	else
+		return -1;
+}
+
+void show_files() {
+	int byteCount, fileNum, i;
+	struct file_info file_info;
+
+	packet clientCMDRequest;
+	clientCMDRequest.type = CMD;
+	clientCMDRequest.payloadCommand = LIST;
+	byteCount = write(sockfd, &clientCMDRequest, sizeof(struct packet));
+	if (byteCount < 0)
+		printf("Error sending LIST message to server\n");
+
+	// lê número de arquivos existentes no diretório
+	packet clientCMDFileSizes;
+	byteCount = read(sockfd, &clientCMDFileSizes, sizeof(struct packet));
+	fileNum = clientCMDFileSizes.payloadCommand;
+	printf("Count Files: %d \n", fileNum);
+
+	if (clientCMDFileSizes.payloadCommand == 0){
+		printf("Empty directory\n\n\n");
+		return;
+	}
+
+	for (i = 0; i < fileNum; i++) {
+		byteCount = read(sockfd, &file_info, sizeof(file_info));
+		printf("-------------");
+		printf("\nFile: %s \nLast modified: %s \nsize: %d\n", file_info.name, file_info.last_modified, file_info.size);
+	}
 }
