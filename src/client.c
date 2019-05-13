@@ -464,7 +464,7 @@ void client_interface() {
 	int command = 0;
 	char request[200], file[200];
 
-	printf("\nCommands:\nupload <path/filename.ext>\ndownload <filename.ext>\nlist\nget_sync_dir\nexit\n");
+	printf("\nCommands:\nupload <path/filename.ext>\ndownload <filename.ext>\nlist_server\nget_sync_dir\nexit\n");
 	do {
 		printf("\ntype your command: ");
 		fgets(request, sizeof(request), stdin);

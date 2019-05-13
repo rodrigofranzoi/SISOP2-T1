@@ -3,7 +3,7 @@
 #define EVENT_SIZE  ( sizeof (struct inotify_event) )
 #define BUF_LEN ( 1024 * ( EVENT_SIZE + 16 ) )
 
-char commands[5][13] = {"upload", "download", "list", "get_sync_dir", "exit"};
+char commands[5][13] = {"upload", "download", "list_server", "get_sync_dir", "exit"};
 
 int initHost(char *argv[], int argc);
 int connect_server (char *host, int port);
