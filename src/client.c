@@ -164,6 +164,38 @@ void sync_client_first() {
 	}
 }
 
+void createMainDir(){
+	char *homedir;
+	char fileName[FILE_MAX + 10] = "sync_dir_";
+
+	if ((homedir = getenv("HOME")) == NULL) {
+        printf("entrei aqui e n sei pq");
+        homedir = getpwuid(getuid())->pw_dir;
+    }
+	// nome do arquivo
+	strcat(fileName, username);
+
+	// forma o path do arquivo
+	strcpy(directory, homedir);
+	strcat(directory, "/");
+	strcat(directory, fileName);
+
+	if (mkdir(directory, 0777) < 0) {
+		// erro
+		if (errno != EEXIST)
+			printf("ERROR creating directory\n");
+	}
+	// diretório não existe
+	else {
+		printf("Creating %s directory in your home\n", fileName);
+	}
+}
+
+void handleGetSyncDirClient(){
+	createMainDir();
+	get_all_files();
+}
+
 void *sync_thread() {
 	int length, i = 0;
     char buffer[BUF_LEN];
@@ -433,8 +465,7 @@ void client_interface() {
 	char request[200], file[200];
 
 	printf("\nCommands:\nupload <path/filename.ext>\ndownload <filename.ext>\nlist\nget_sync_dir\nexit\n");
-	do
-	{
+	do {
 		printf("\ntype your command: ");
 		fgets(request, sizeof(request), stdin);
 		command = commandRequest(request, file);
@@ -444,9 +475,9 @@ void client_interface() {
 		{
 			case LIST: show_files(); break;
 			case EXIT: close_connection(); break;
-			case SYNC: printf("Get All Files  \n"); break;
+			case SYNC: handleGetSyncDirClient(); break;
 			case DOWNLOAD: get_file(file); break;
-		    case UPLOAD: printf("Upload  \n"); break;
+		    case UPLOAD: upload_file(file, sockfd); break;
 
 			default: printf("ERROR invalid command\n");
 		}

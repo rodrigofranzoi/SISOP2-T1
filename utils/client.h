@@ -24,3 +24,5 @@ int commandRequest(char *request, char *file);
 void show_files();
 void close_connection();
 void get_file(char *file);
+void createMainDir();
+void handleGetSyncDirClient();

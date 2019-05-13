@@ -195,7 +195,7 @@ void listen_client(int client_socket, char *username) {
       switch (clientRequest.payloadCommand) {
         case LIST: send_file_info(client_socket, username); break;
         case DOWNLOAD: send_file(clientRequest._payload, client_socket, username); break;
-        case UPLOAD: printf("UPLOAD CMD\n"); break;
+        case UPLOAD: receive_file(clientRequest, client_socket, username); break;
         case EXIT: close_client_connection(client_socket, username); break;
   //      default: printf("ERROR invalid command\n");
       }
