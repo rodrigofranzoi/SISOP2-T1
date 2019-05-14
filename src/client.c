@@ -464,7 +464,7 @@ void client_interface() {
 	int command = 0;
 	char request[200], file[200];
 
-	printf("\nCommands:\nupload <path/filename.ext>\ndownload <filename.ext>\nlist_server\nget_sync_dir\nexit\n");
+	printf("\nCommands:\nupload <path/filename.ext>\ndownload <filename.ext>\nlist_server\nget_sync_dir\nexit\nlist_client\ndelete <filename.ext>\n");
 	do {
 		printf("\ntype your command: ");
 		fgets(request, sizeof(request), stdin);
@@ -478,10 +478,62 @@ void client_interface() {
 			case SYNC: handleGetSyncDirClient(); break;
 			case DOWNLOAD: get_file(file); break;
 		    case UPLOAD: upload_file(file, sockfd); break;
+			case LIST_CLIENT: list_client(); break;
+			case DELETE: printf("This is DELETE"); break;
 
 			default: printf("ERROR invalid command\n");
 		}
 	}while(command != EXIT);
+}
+
+void list_client(){
+	char *homedir;
+	char fileName[FILE_MAX + 10] = "sync_dir_";
+	DIR *d, *userDir;
+	struct dirent *dir, *userDirent;
+	int i = 0;
+	FILE *file_d;
+	struct stat st;
+	char folder[FILE_MAX], path[200];
+
+	if ((homedir = getenv("HOME")) == NULL) {
+        homedir = getpwuid(getuid())->pw_dir;
+    }
+
+	// constroi caminho do home do usuário
+	strcat(fileName, username);
+	strcpy(directory, homedir);
+	strcat(directory, "/");
+	strcat(directory, fileName);
+
+  	d = opendir(".");
+  	if (d){
+    	while ((dir = readdir(d)) != NULL) {
+		//testa se e um diretorio	
+      	if (dir->d_type == DT_DIR && strcmp(dir->d_name,".")!=0 && strcmp(dir->d_name,"..")!=0) {
+          	userDir = opendir(dir->d_name);
+          	strcpy(folder, dir->d_name);
+          	strcat(folder, "/");
+            i = 0;
+            while((userDirent = readdir(userDir)) != NULL) {
+              //testa se e um arquivo regular e se esta no root dir
+			 	if(userDirent->d_type == DT_REG && strcmp(userDirent->d_name,".")!=0 && strcmp(userDirent->d_name,"..")!=0) {
+                	strcpy(path, folder);
+                	strcat(path, userDirent->d_name);
+			
+                 	stat(path, &st);
+					printf("------------\n");
+					printf("file name %s\n", userDirent->d_name) ;
+					printf("file Size %ld\n", st.st_size);
+					printf("file Las modified %s\n", ctime(&st.st_mtime));
+
+					i++;
+            	}
+          }
+       }
+	  }
+    }
+	closedir(d);
 }
 
 void get_file(char *file) {
@@ -557,6 +609,8 @@ int commandRequest(char *request, char *file) {
 		return EXIT;
 	else if (!strcmp(request, commands[SYNC]))
 		return SYNC;
+	else if (!strcmp(request, commands[LIST_CLIENT]))
+		return LIST_CLIENT;	
 
 	requestAux = strtok(request, " ");
 	fileAux = strtok(NULL, "\n");
@@ -570,6 +624,8 @@ int commandRequest(char *request, char *file) {
 			return DOWNLOAD;
 		else if (!strcmp(requestAux, commands[UPLOAD]))
 			return UPLOAD;
+		else if (!strcmp(requestAux, commands[DELETE]))
+			return DELETE;	
 	}
 	else
 		return -1;

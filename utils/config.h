@@ -22,6 +22,7 @@
 
 #define DELETE 6
 #define DOWNLOADALL 5
+#define LIST_CLIENT 5
 #define EXIT 4
 #define SYNC 3
 #define LIST 2
@@ -54,7 +55,7 @@ typedef struct packet{
 struct file_info {
   char name[FILENAME_MAX_SIZE];
   char extension[FILEEXT_MAX_SIZE];
-  char last_modified[20];
+  char last_modified[50];
   time_t lst_modified;
   int size;
   pthread_mutex_t file_mutex;

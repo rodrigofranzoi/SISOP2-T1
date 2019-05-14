@@ -3,7 +3,7 @@
 #define EVENT_SIZE  ( sizeof (struct inotify_event) )
 #define BUF_LEN ( 1024 * ( EVENT_SIZE + 16 ) )
 
-char commands[5][13] = {"upload", "download", "list_server", "get_sync_dir", "exit"};
+char commands[7][13] = {"upload", "download", "list_server", "get_sync_dir", "exit", "list_client", "delete"};
 
 int initHost(char *argv[], int argc);
 int connect_server (char *host, int port);
@@ -26,3 +26,4 @@ void close_connection();
 void get_file(char *file);
 void createMainDir();
 void handleGetSyncDirClient();
+void list_client();
