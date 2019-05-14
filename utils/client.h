@@ -27,3 +27,4 @@ void get_file(char *file);
 void createMainDir();
 void handleGetSyncDirClient();
 void list_client();
+void delete_file(char* file);

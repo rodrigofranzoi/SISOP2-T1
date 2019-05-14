@@ -479,7 +479,7 @@ void client_interface() {
 			case DOWNLOAD: get_file(file); break;
 		    case UPLOAD: upload_file(file, sockfd); break;
 			case LIST_CLIENT: list_client(); break;
-			case DELETE: printf("This is DELETE"); break;
+			case DELETE: delete_file(file); break;
 
 			default: printf("ERROR invalid command\n");
 		}
@@ -487,24 +487,12 @@ void client_interface() {
 }
 
 void list_client(){
-	char *homedir;
-	char fileName[FILE_MAX + 10] = "sync_dir_";
 	DIR *d, *userDir;
 	struct dirent *dir, *userDirent;
 	int i = 0;
 	FILE *file_d;
 	struct stat st;
 	char folder[FILE_MAX], path[200];
-
-	if ((homedir = getenv("HOME")) == NULL) {
-        homedir = getpwuid(getuid())->pw_dir;
-    }
-
-	// constroi caminho do home do usuário
-	strcat(fileName, username);
-	strcpy(directory, homedir);
-	strcat(directory, "/");
-	strcat(directory, fileName);
 
   	d = opendir(".");
   	if (d){
@@ -679,4 +667,23 @@ void close_connection() {
 
 	close(sockfd);
 	printf("Connection with server has been closed\n");
+}
+
+void delete_file(char* file) {
+	char *homedir;
+	char folder[FILE_MAX + 50];
+
+	// constroi caminho do home do usuário
+	strcpy(folder, directory);
+	strcat(folder, "/");
+	strcat(folder, file);
+
+    int status = remove(folder);
+ 
+  	if (status == 0){
+    	printf("%s file deleted successfully.\n", file);
+	} else {
+    	printf("Unable to delete the file\n");
+    	perror("Following error occurred");
+  	}
 }
