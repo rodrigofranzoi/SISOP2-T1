@@ -513,7 +513,9 @@ void list_client(){
 					printf("------------\n");
 					printf("file name %s\n", userDirent->d_name) ;
 					printf("file Size %ld\n", st.st_size);
-					printf("file Las modified %s\n", ctime(&st.st_mtime));
+					printf("file Last Modified: %s", ctime(&st.st_mtime));
+					printf("file Access Time: %s", ctime(&st.st_atime));
+					printf("file Creation: %s", ctime(&st.st_ctime));
 
 					i++;
             	}
@@ -622,6 +624,7 @@ int commandRequest(char *request, char *file) {
 void show_files() {
 	int byteCount, fileNum, i;
 	struct file_info file_info;
+	struct stat st;
 
 	packet clientCMDRequest;
 	clientCMDRequest.type = CMD;
@@ -643,7 +646,6 @@ void show_files() {
 
 	for (i = 0; i < fileNum; i++) {
 		byteCount = read(sockfd, &file_info, sizeof(file_info));
-		printf("-------------");
 		printf("\nFile: %s \nLast modified: %s \nsize: %d\n", file_info.name, file_info.last_modified, file_info.size);
 	}
 }
