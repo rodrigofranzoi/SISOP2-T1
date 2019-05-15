@@ -646,7 +646,7 @@ void show_files() {
 
 	for (i = 0; i < fileNum; i++) {
 		byteCount = read(sockfd, &file_info, sizeof(file_info));
-		printf("\nFile: %s \nLast modified: %s \nsize: %d\n", file_info.name, file_info.last_modified, file_info.size);
+		printf("\nFile: %s \nLast modified: %sLast Access: %sLast Created: %ssize: %d\n", file_info.name, file_info.last_modified, ctime(&file_info.st.st_atime), ctime(&file_info.st.st_ctime), file_info.size);
 	}
 }
 

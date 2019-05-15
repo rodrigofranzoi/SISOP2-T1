@@ -57,6 +57,7 @@ struct file_info {
   char extension[FILEEXT_MAX_SIZE];
   char last_modified[50];
   time_t lst_modified;
+  struct stat st;
   int size;
   pthread_mutex_t file_mutex;
 };

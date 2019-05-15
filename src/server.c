@@ -105,7 +105,7 @@ int initializeClientList() {
                  	strcpy(client.file_info[i].name, userDirent->d_name);
 									client.file_info[i].size = st.st_size;
 									client.file_info[i].lst_modified = st.st_mtime;
-
+                  client.file_info[i].st = st;
 									strcpy(client.file_info[i].last_modified, ctime(&st.st_mtime));
 
 								i++;
@@ -462,6 +462,7 @@ void receive_file(struct packet responseThread, int socket, char*username) {
   char dataBuffer[KBYTE], path[200];
 	char file[FILENAME_MAX_SIZE];
   struct file_info file_info;
+  struct stat st;
   time_t now;
 	
 	fileSize = responseThread.length;
@@ -479,6 +480,8 @@ void receive_file(struct packet responseThread, int socket, char*username) {
         strcpy(file_info.last_modified, ctime(&now));
         file_info.lst_modified = now;
         file_info.size = fileSize;
+        stat(path, &st);
+        file_info.st = st;
 
       	updateFileInfo(username, file_info);
         return;
@@ -507,6 +510,9 @@ void receive_file(struct packet responseThread, int socket, char*username) {
 
       time (&now);
 
+
+      stat(path, &st);
+      file_info.st = st;
       strcpy(file_info.name, file);
       strcpy(file_info.last_modified, ctime(&now));
       file_info.lst_modified = now;
