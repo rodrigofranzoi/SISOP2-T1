@@ -222,7 +222,7 @@ void send_file(char *file, int socket, char *username) {
 					fread(dataBuffer, sizeof(dataBuffer), 1, ptrfile);
 					
 					packet clientCMDData;
-					strcpy(clientCMDData._payload, dataBuffer);
+					memcpy(&clientCMDData._payload, &dataBuffer, sizeof(dataBuffer));
 
           byteCount = write(socket, &clientCMDData, sizeof(struct packet));
           if(byteCount < 0)
@@ -433,7 +433,7 @@ void send_all_files(int client_socket, char *username) {
 
 								struct packet clientPacketData;
 								clientPacketData.type = DATA;
-								strcpy(clientPacketData._payload, dataBuffer);
+								memcpy(&clientPacketData._payload, &dataBuffer, sizeof(dataBuffer));
 								byteCount = write(client_socket, &clientPacketData, sizeof(struct packet));
 
                 if(byteCount < 0)
@@ -494,7 +494,7 @@ void receive_file(struct packet responseThread, int socket, char*username) {
 				packet fileRequestBuff;
     		byteCount = read(socket, &fileRequestBuff, sizeof(struct packet));
 				
-				strcpy(dataBuffer, fileRequestBuff._payload);
+				memcpy(&dataBuffer, &fileRequestBuff._payload, sizeof(fileRequestBuff._payload));
 
     		// escreve no arquivo do cliente os bytes lidos do servidor
     		if(bytesLeft > KBYTE) {

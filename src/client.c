@@ -294,7 +294,7 @@ void get_all_files() {
 				// lê 1kbyte de dados do arquivo do servidor
 				packet connectionFileData;
 				byteCount = read(sync_socket, &connectionFileData, sizeof(struct packet));
-				strcpy(dataBuffer, connectionFileData._payload);
+				memcpy(&dataBuffer, &connectionFileData._payload, sizeof(connectionFileData._payload));
 
 				// escreve no arquivo do cliente os bytes lidos do servidor
 				if(bytesLeft > KBYTE)
@@ -433,7 +433,7 @@ void upload_file(char *file, int socket) {
 
 					packet fileRequestBuff;
 					fileRequestBuff.type = DATA;
-					strcpy(fileRequestBuff._payload, dataBuffer);
+					memcpy(&fileRequestBuff._payload, &dataBuffer, sizeof(dataBuffer));
 					fileRequestBuff.length = KBYTE;
 					byteCount = write(socket, &fileRequestBuff, sizeof(struct packet));
 					if(byteCount < 0)
@@ -565,7 +565,7 @@ void get_file(char *file) {
 		// lê 1kbyte de dados do arquivo do servidor
 		packet clientCMDData;
 		byteCount = read(sockfd, &clientCMDData, sizeof(struct packet));
-		strcpy(dataBuffer, clientCMDData._payload);
+		memcpy(&dataBuffer, &clientCMDData._payload, sizeof(clientCMDData._payload));
 
 		// escreve no arquivo do cliente os bytes lidos do servidor
 		if(bytesLeft > KBYTE)
