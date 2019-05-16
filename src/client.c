@@ -37,6 +37,14 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
+void refreshSocket(){
+	close_connection();
+	sockfd = -1;
+	connect_server(host, port);
+	sync_socket = -1;
+	create_sync_sock();
+}
+
 int initHost(char *argv[], int argc) {
     int resp = 1;
     
@@ -301,7 +309,9 @@ void get_all_files() {
 		bzero(file, sizeof(file));
 		// usleep(1000);
 	}
-
+	pthread_mutex_lock(&file_mutex2);
+	refreshSocket();
+	pthread_mutex_unlock(&file_mutex2);
 }
 
 int create_sync_sock() {
@@ -408,6 +418,7 @@ void delete_file_request(char* file, int socket) {
 
 pthread_mutex_t file_mutex;
 void upload_file(char *file, int socket) {
+	printf("ENTROU DENTRO DO UPLOAD\n");
 	int byteCount, fileSize;
 	FILE* ptrfile;
 	char dataBuffer[KBYTE];
@@ -417,13 +428,17 @@ void upload_file(char *file, int socket) {
             threadRequest.type = RESP;
             threadRequest.payloadCommand = UPLOAD;
             threadRequest.length = getFileSize(ptrfile);
+			printf("ENIVOU TAMANHO\n");
             write(socket, &threadRequest, sizeof(struct packet));
+			printf("recebeu response TAMANHO\n");
 
-			if (fileSize == 0) {
+
+			if (threadRequest.length == 0) {
 				fclose(ptrfile);
 				return;
 			}
 		int cont =0;
+		printf("ANTE DO WILE\n");
 			while(!feof(ptrfile)) {
 				// pthread_mutex_lock(&file_mutex);
 					printf("pack %d\n\n", ++cont);
@@ -449,8 +464,7 @@ void upload_file(char *file, int socket) {
 	// arquivo não existe
 	else {
 		printf("ERROR this file doesn't exist\n\n");
-	}
-		
+	}	
 }
 
 int getFileSize(FILE *ptrfile) {
@@ -653,6 +667,7 @@ void show_files() {
 	byteCount = read(sockfd, &clientCMDFileSizes, sizeof(struct packet));
 		if (byteCount < 0)
 		printf("Error READING LIST message to server\n");
+	usleep(1000);	
 	fileNum = clientCMDFileSizes.payloadCommand;
 	printf("FILE SIZE RECEIVED: %d", clientCMDFileSizes.payloadCommand);
 	printf("Count Files: %d \n", fileNum);
@@ -667,6 +682,7 @@ void show_files() {
 		printf("\nFile: %s \nLast modified: %sLast Access: %sLast Created: %ssize: %d\n", file_info.name, file_info.last_modified, ctime(&file_info.st.st_atime), ctime(&file_info.st.st_ctime), file_info.size);
 	}
 	pthread_mutex_unlock(&lock);
+	refreshSocket();
 }
 
 void close_connection() {
