@@ -260,7 +260,6 @@ void get_all_files() {
 	char dataBuffer[KBYTE], file[FILENAME_MAX_SIZE], path[KBYTE];
 
 	// copia nome do arquivo e comando para enviar para o servidor
-
 	printf("DOWNLOAD REQUEST\n");
     packet threadRequest;
     threadRequest.type = CMD;
@@ -299,83 +298,10 @@ void get_all_files() {
 		// pthread_mutex_lock(&file_mutex2);
 		get_file(file, 1);
 		// pthread_mutex_unlock(&file_mutex2);
-
-		// // cria arquivo no diretório do cliente
-		// ptrfile = fopen(path, "wb");
-
-		// printf("read len: \n");
-		// packet connectionFileSize;
-		// read(sync_socket, &connectionFileSize, sizeof(struct packet));
-		// fileSize = connectionFileSize.length;
-		// // número de bytes que faltam ser lidos
-		// bytesLeft = fileSize;
-
-		// printf("FILEsize: %d\n", fileSize);
-		// int cont = 0;
-		//if(!fork()) {
-			// while(bytesLeft > 0) {
-			// 	pthread_mutex_lock(&file_mutex2);
-			// 	printf("While\n");
-			// 	// lê 1kbyte de dados do arquivo do servidor
-			// 	bzero(dataBuffer, KBYTE);
-			// 	cont++;
-			// 	packet clientCMDData;
-			// 	printf("esperano um write");
-			// 	byteCount = read(sync_socket, &clientCMDData, sizeof(struct packet));
-			// 	//strcpy(dataBuffer, clientCMDData._payload); memcpy
-			// 	printf("BUFFER %d - VALOR LIDO %s\n", cont, clientCMDData._payload);
-			// 	printf("SIZE: %ld", sizeof(clientCMDData._payload));
-			// 	printf("LENGHT: %d\n", clientCMDData.length);
-			// 	// escreve no arquivo do cliente os bytes lidos do servidor
-			// 	if(bytesLeft > KBYTE)
-			// 	{
-			// 		byteCount = fwrite(clientCMDData._payload, KBYTE, 1, ptrfile);
-			// 	}
-			// 	else
-			// 	{
-			// 		fwrite(clientCMDData._payload, bytesLeft, 1, ptrfile);
-			// 	}
-			// 	// decrementa os bytes lidos
-			// 	bytesLeft -= KBYTE;
-			// 	usleep(100);
-			// 	pthread_mutex_unlock(&file_mutex2);
-			// }
-		//}
-
-		// if (fileSize > 0)
-		// {	
-		// 	int cont = 0;
-		// 	while(bytesLeft > 0)
-		// 	{	
-		// 		cont++;
-		// 		bzero(dataBuffer, KBYTE);
-		// 		// lê 1kbyte de dados do arquivo do servidor
-		// 		packet connectionFileData;
-		// 		byteCount = read(sync_socket, dataBuffer, sizeof(struct packet));
-		// 		//memcpy(&dataBuffer, &connectionFileData._payload, sizeof(connectionFileData._payload));
-
-		// 		printf("BUFFER %d - VALOR LIDO %s\n", cont, dataBuffer);
-		// 		printf("SIZE: %ld", sizeof(dataBuffer));
-		// 		printf("LENGHT: %d\n", connectionFileData.length);
-
-		// 		// escreve no arquivo do cliente os bytes lidos do servidor
-		// 		if(bytesLeft > KBYTE)
-		// 		{
-		// 			byteCount = fwrite(dataBuffer, KBYTE, 1, ptrfile);
-		// 		}
-		// 		else
-		// 		{
-		// 			fwrite(dataBuffer, bytesLeft, 1, ptrfile);
-		// 		}
-		// 		// decrementa os bytes lidos
-		// 		bytesLeft -= KBYTE;
-		// 		usleep(1000);
-		// 	}
-		// }
-		// printf("CLOSE file\n");
-		// fclose(ptrfile);
-		usleep(1000);
+		bzero(file, sizeof(file));
+		// usleep(1000);
 	}
+
 }
 
 int create_sync_sock() {
@@ -485,11 +411,7 @@ void upload_file(char *file, int socket) {
 	int byteCount, fileSize;
 	FILE* ptrfile;
 	char dataBuffer[KBYTE];
-    packet threadRequest;
-	
-
-		
-
+    packet threadRequest;		
 	if (ptrfile = fopen(file, "rb")) {
 			getFilename(file, threadRequest._payload);
             threadRequest.type = RESP;
@@ -503,23 +425,21 @@ void upload_file(char *file, int socket) {
 			}
 		int cont =0;
 			while(!feof(ptrfile)) {
-				pthread_mutex_lock(&file_mutex);
+				// pthread_mutex_lock(&file_mutex);
 					printf("pack %d\n\n", ++cont);
 					packet fileRequestBuff;
 					fread(dataBuffer, sizeof(dataBuffer), 1, ptrfile);
-					
 					fileRequestBuff.type = DATA;
 					memcpy(&fileRequestBuff._payload, &dataBuffer, sizeof(dataBuffer));
 					fileRequestBuff.length = sizeof(dataBuffer);
 					fileRequestBuff.payloadCommand = 9;
-					// printf("DATA BUFF: %s",fileRequestBuff._payload);
 					byteCount = write(socket, &fileRequestBuff, sizeof(struct packet));
 					if(byteCount < 0){
 						printf("ERROR sending file\n");	
 					}
 					bzero(dataBuffer, sizeof(dataBuffer));
-					pthread_mutex_unlock(&file_mutex);
-					// usleep(100);			
+					// pthread_mutex_unlock(&file_mutex);
+					// usleep(1000);			
 			}
 			fclose(ptrfile);
 
@@ -574,23 +494,19 @@ void list_client(){
 	int i = 0;
 	FILE *file_d;
 	struct stat st;
-	char folder[FILE_MAX], path[200];
+	char folder[FILE_MAX], path[200], initial[200];
 
-  	d = opendir(".");
+	strcpy(initial, directory);
+    strcat(initial, "/");
+	printf("diretorio: %s\n", initial);
+
+  	d = opendir(initial);
   	if (d){
-    	while ((dir = readdir(d)) != NULL) {
-		//testa se e um diretorio	
-      	if (dir->d_type == DT_DIR && strcmp(dir->d_name,".")!=0 && strcmp(dir->d_name,"..")!=0) {
-          	userDir = opendir(dir->d_name);
-          	strcpy(folder, dir->d_name);
-          	strcat(folder, "/");
-            i = 0;
-            while((userDirent = readdir(userDir)) != NULL) {
+        while((userDirent = readdir(d)) != NULL) {
               //testa se e um arquivo regular e se esta no root dir
-			 	if(userDirent->d_type == DT_REG && strcmp(userDirent->d_name,".")!=0 && strcmp(userDirent->d_name,"..")!=0) {
-                	strcpy(path, folder);
-                	strcat(path, userDirent->d_name);
-			
+			if(userDirent->d_type == DT_REG && strcmp(userDirent->d_name,".")!=0 && strcmp(userDirent->d_name,"..")!=0) {
+                	strcpy(path, initial);
+                	strcat(path, userDirent->d_name);			
                  	stat(path, &st);
 					printf("------------\n");
 					printf("file name %s\n", userDirent->d_name) ;
@@ -600,16 +516,13 @@ void list_client(){
 					printf("file Creation: %s", ctime(&st.st_ctime));
 
 					i++;
-            	}
-          }
-       }
-	  }
+           	} 
+        }
     }
-	closedir(d);
+		closedir(d);
 }
 
 void get_file(char *file, int shouldSaveOnMainDir) {
-	printf("ENTROU GET FILE");
 	int byteCount, bytesLeft, fileSize;
 	struct client_request clientRequest;
 	FILE* ptrfile;
@@ -640,16 +553,15 @@ void get_file(char *file, int shouldSaveOnMainDir) {
 	}
 
 	char fileDirector[200];
+	bzero(fileDirector, sizeof(fileDirector));
 	if(shouldSaveOnMainDir){
 		strcpy(fileDirector, directory);
 		strcat(fileDirector, "/");
 		strcat(fileDirector, file);
 	
 	} else {
-		strcat(fileDirector, file);
+		strcpy(fileDirector, file);
 	}
-
-	printf("FILE DIR: %s",fileDirector);
 
 
 	// cria arquivo no diretório do cliente
@@ -722,12 +634,13 @@ int commandRequest(char *request, char *file) {
 	else
 		return -1;
 }
-
+pthread_mutex_t lock;
 void show_files() {
 	int byteCount, fileNum, i;
 	struct file_info file_info;
 	struct stat st;
 
+	pthread_mutex_lock(&lock);
 	packet clientCMDRequest;
 	clientCMDRequest.type = CMD;
 	clientCMDRequest.payloadCommand = LIST;
@@ -738,7 +651,10 @@ void show_files() {
 	// lê número de arquivos existentes no diretório
 	packet clientCMDFileSizes;
 	byteCount = read(sockfd, &clientCMDFileSizes, sizeof(struct packet));
+		if (byteCount < 0)
+		printf("Error READING LIST message to server\n");
 	fileNum = clientCMDFileSizes.payloadCommand;
+	printf("FILE SIZE RECEIVED: %d", clientCMDFileSizes.payloadCommand);
 	printf("Count Files: %d \n", fileNum);
 
 	if (clientCMDFileSizes.payloadCommand == 0){
@@ -750,6 +666,7 @@ void show_files() {
 		byteCount = read(sockfd, &file_info, sizeof(file_info));
 		printf("\nFile: %s \nLast modified: %sLast Access: %sLast Created: %ssize: %d\n", file_info.name, file_info.last_modified, ctime(&file_info.st.st_atime), ctime(&file_info.st.st_ctime), file_info.size);
 	}
+	pthread_mutex_unlock(&lock);
 }
 
 void close_connection() {
