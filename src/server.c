@@ -13,49 +13,50 @@ int main(int argc, char *argv[]) {
 	initializeClientList();
 
 	// Comunicação
-	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) 
+	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
         printf("ERROR opening socket");
-	
+
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_port = htons(PORT);
 	serv_addr.sin_addr.s_addr = INADDR_ANY;
-	bzero(&(serv_addr.sin_zero), 8);     
-    
-	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) 
+	bzero(&(serv_addr.sin_zero), 8);
+
+	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
 		printf("ERROR on binding");
-	
+
 	listen(sockfd, 5);
 	clilen = sizeof(struct sockaddr_in);
 	while(1) {
 		if ((newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen)) == -1){
 			printf("ERROR on accept");
 			return -1;
-		} 
-			
-		
+		}
+
+
 		struct packet responseThread;
 		bzero(&responseThread, sizeof(struct packet));
-		
+
 		/* read from the socket */
 		n = read(newsockfd, &responseThread, sizeof(struct packet));
 		if (n < 0) {
 			printf("ERROR reading from socket");
 		}
-		
+
 		if(responseThread.payloadCommand) {
+				printf("client thread\n");
 				if(pthread_create(&clientThread, NULL, client_thread, &newsockfd)) {
 					printf("ERROR creating thread\n");
 					return -1;
 				}
 		} else {
+			printf("nsync thread\n");
 			if(pthread_create(&syncThread, NULL, sync_thread_sv, &newsockfd)) {
-						printf("ERROR creating sync thread\n");
-						return -1;
-					}
+				printf("ERROR creating sync thread\n");
+				return -1;
+			}
 		}
 	}
-	// close(sockfd);
-	return 0; 
+	return 0;
 }
 
 int initializeClientList() {
@@ -72,7 +73,7 @@ int initializeClientList() {
   	d = opendir(".");
   	if (d){
     	while ((dir = readdir(d)) != NULL) {
-		//testa se e um diretorio	
+		//testa se e um diretorio
       	if (dir->d_type == DT_DIR && strcmp(dir->d_name,".")!=0 && strcmp(dir->d_name,"..")!=0) {
         	client.devices[0] = DEVICE_FREE;
           	client.devices[1] = DEVICE_FREE;
@@ -151,7 +152,7 @@ void *client_thread (void *socket) {
   byteCount = read(*client_socket, &clientThread, sizeof(struct packet));
   strcpy(username, clientThread._payload);
   printf("username %s \n", username);
-  
+
   // erro de leitura
   if (byteCount < 1)
     printf("ERROR reading from socket\n");
@@ -159,19 +160,20 @@ void *client_thread (void *socket) {
   // inicializa estrutura do client
   if (initializeClient(*client_socket, username, &client) > 0)
   {
-	// avisamos cliente que conseguiu conectar  
+	// avisamos cliente que conseguiu conectar
+	printf("sending sucess...\n" );
 	struct packet conSucc;
 	conSucc.payloadCommand = 1;
 	conSucc.type = RESP;
 	byteCount = write(*client_socket, &conSucc, sizeof(struct packet));
-      if (byteCount < 0) {
+  if (byteCount < 0) {
 		printf("ERROR sending connected message 1\n");
-	  }
-    
+  }
+
 	printf("%s connected!\n", username);
   }
   else {
-    // avisa cliente que não conseguimos conectar
+  printf("sending error...\n" );
 	struct packet conSucc;
 	conSucc.payloadCommand = 0;
 	conSucc.type = RESP;
@@ -187,11 +189,11 @@ void *client_thread (void *socket) {
 
 void listen_client(int client_socket, char *username) {
   int byteCount, command;
-	struct packet clientRequest;	
+	struct packet clientRequest;
 
   do {
       byteCount = read(client_socket, &clientRequest, sizeof(struct packet));
-    
+
       switch (clientRequest.payloadCommand) {
         case LIST: send_file_info(client_socket, username); break;
         case DOWNLOAD: send_file(clientRequest._payload, client_socket, username); break;
@@ -210,7 +212,6 @@ void send_file(char *file, int socket, char *username) {
   strcpy(path, username);
   strcat(path, "/");
   strcat(path, file);
-
   if (ptrfile = fopen(path, "rb")) {
       fileSize = getFileSize(ptrfile);
 
@@ -219,14 +220,16 @@ void send_file(char *file, int socket, char *username) {
     	byteCount = write(socket, &clientCMDSize, sizeof(struct packet));
 
       while(!feof(ptrfile)) {
-					fread(dataBuffer, sizeof(dataBuffer), 1, ptrfile);
-					
-					packet clientCMDData;
+				packet clientCMDData;
+					fread(&dataBuffer, sizeof(dataBuffer), 1, ptrfile);
 					memcpy(&clientCMDData._payload, &dataBuffer, sizeof(dataBuffer));
-
+					clientCMDData.length = sizeof(dataBuffer);
           byteCount = write(socket, &clientCMDData, sizeof(struct packet));
-          if(byteCount < 0)
-            printf("ERROR sending file\n");
+          if(byteCount < 0){
+					  printf("ERROR sending file\n");
+					}
+					bzero(dataBuffer, sizeof(dataBuffer));
+					usleep(100);
       }
       fclose(ptrfile);
   }
@@ -372,12 +375,12 @@ void listen_sync(int client_socket, char *username) {
   int byteCount, command;
   struct packet responseThread;
 
-  do {	  	
+  do {
 		/* read from the socket */
 		byteCount = read(client_socket, &responseThread, sizeof(struct packet));
 		if (byteCount < 0) {
 			printf("ERROR reading from socket");
-		} 
+		}
       switch (responseThread.payloadCommand) {
         case UPLOAD: receive_file(responseThread, client_socket, username); break;
         case DOWNLOADALL: send_all_files(client_socket, username); break;
@@ -388,7 +391,9 @@ void listen_sync(int client_socket, char *username) {
   } while(responseThread.payloadCommand != EXIT);
 }
 
+//pthread_mutex_t t1, t2;
 void send_all_files(int client_socket, char *username) {
+	printf("CHEGOU DENTRO DO ALL FILES\n\n");
   int byteCount, bytesLeft, fileSize, fileNum=0, i;
   FILE* ptrfile;
   char dataBuffer[KBYTE], path[KBYTE];
@@ -402,47 +407,69 @@ void send_all_files(int client_socket, char *username) {
 			}
     }
   }
-
+	printf("FILE COUNT: %d\n", fileNum);
 	clientThread.type = DATA;
 	clientThread.payloadCommand = fileNum;
   write(client_socket, &clientThread, sizeof(struct packet));
 
+	int t = 0;
+
   for(i = 0; i < FILE_MAX; i++) {
-    if (client_node->client.file_info[i].size != -1) {
+		if (client_node->client.file_info[i].size != -1) {
       strcpy(path, username);
       strcat(path, "/");
       strcat(path, client_node->client.file_info[i].name);
+
+			printf("sending file name: %s\n", client_node->client.file_info[i].name);
 
 			struct packet clientPacketFile;
 			clientPacketFile.type = DATA;
 			strcpy(clientPacketFile._payload, client_node->client.file_info[i].name);
       write(client_socket, &clientPacketFile, sizeof(struct packet));
-
-      if (ptrfile = fopen(path, "rb")) {
-          fileSize = getFileSize(ptrfile);
-
-          // escreve estrutura do arquivo no servidor
-					struct packet clientPacketSize;
-					clientPacketSize.type = DATA;
-					clientPacketSize.length = fileSize;
-					byteCount = write(client_socket, &clientPacketSize, sizeof(struct packet));
-
-          if (fileSize > 0) {
-            while(!feof(ptrfile)) {
-                fread(dataBuffer, sizeof(dataBuffer), 1, ptrfile);
-
-								struct packet clientPacketData;
-								clientPacketData.type = DATA;
-								memcpy(&clientPacketData._payload, &dataBuffer, sizeof(dataBuffer));
-								byteCount = write(client_socket, &clientPacketData, sizeof(struct packet));
-
-                if(byteCount < 0)
-                  printf("ERROR sending file\n");
-            }
-          }
-          fclose(ptrfile);
-      }
+			if(byteCount < 0){
+				printf("ERROR sending file NAME\n");
+			}
+			printf("ENVIOU file NAME\n");
+			//usleep(1000);
+      // if (ptrfile = fopen(path, "rb")) {
+      //     fileSize = getFileSize(ptrfile);
+			//
+      //     // escreve estrutura do arquivo no servidor
+			// 		struct packet clientPacketSize;
+			// 		clientPacketSize.type = DATA;
+			// 		clientPacketSize.length = fileSize;
+			// 		byteCount = write(client_socket, &clientPacketSize, sizeof(struct packet));
+			// 		if(byteCount < 0){
+			// 			printf("ERROR file SIZE\n");
+			// 		}
+			// 		printf("ENVIOU SIZE %d\n", fileSize);
+			//
+			//
+      //     // if (fileSize > 0) {
+      //     //   while(!feof(ptrfile)) {
+			// 		// 		pthread_mutex_lock(&t1);
+      //     //       fread(dataBuffer, sizeof(dataBuffer), 1, ptrfile);
+			// 		//
+			// 		// 			struct packet clientPacketData;
+			// 		// 			clientPacketData.type = DATA;
+			// 		// 			strcpy(clientPacketData._payload, dataBuffer);
+			// 		// 			byteCount = write(client_socket, &clientPacketData, sizeof(struct packet));
+			// 		// 			printf("DATA : %s \n", dataBuffer);
+      //     //       printf("COUNT %d\n", t);
+			// 		// 			if(byteCount < 0){
+			// 		// 				printf("ERROR sending file\n");
+			// 		// 			}
+			// 		// 			printf("sending data to client\n");
+			// 		// 			bzero(dataBuffer, sizeof(dataBuffer));
+			// 		// 			t++;
+			// 		// 			//usleep(10000);
+			// 		// 			pthread_mutex_lock(&t1);
+      //     //   }
+      //     // }
+      //     // fclose(ptrfile);
+      // }
     }
+		//usleep(10000);
   }
 }
 
@@ -456,7 +483,9 @@ int getFileSize(FILE *ptrfile) {
 	return size;
 }
 
+pthread_mutex_t mutex;
 void receive_file(struct packet responseThread, int socket, char*username) {
+	printf("RECEIVING NEW FILE\n");
   int byteCount, bytesLeft, fileSize;
   FILE* ptrfile;
   char dataBuffer[KBYTE], path[200];
@@ -464,17 +493,23 @@ void receive_file(struct packet responseThread, int socket, char*username) {
   struct file_info file_info;
   struct stat st;
   time_t now;
-	
+
 	fileSize = responseThread.length;
 	strcpy(file, responseThread._payload);
   strcpy(path, username);
   strcat(path, "/");
   strcat(path, file);
 
+	printf("FILE NAME: %s\n", file);
+	printf("FILE SIZE: %d\n", fileSize);
+
+
   if (ptrfile = fopen(path, "wb")) {
 
       if (fileSize == 0) {
         fclose(ptrfile);
+
+				printf("FILE SIZE IS == 0\n");
 
       	strcpy(file_info.name, file);
         strcpy(file_info.last_modified, ctime(&now));
@@ -488,26 +523,30 @@ void receive_file(struct packet responseThread, int socket, char*username) {
       }
 
       bytesLeft = fileSize;
+			int cont = 0;
 
-      while(bytesLeft > 0) {
-        	// lê 1kbyte de dados do arquivo do servidor
+
+
+	    while(bytesLeft > 0) {
+				pthread_mutex_lock(&mutex);
+				bzero(dataBuffer, sizeof(dataBuffer));
+				printf("WRITING TO FILE\n");
 				packet fileRequestBuff;
     		byteCount = read(socket, &fileRequestBuff, sizeof(struct packet));
-				
-				memcpy(&dataBuffer, &fileRequestBuff._payload, sizeof(fileRequestBuff._payload));
-
-    		// escreve no arquivo do cliente os bytes lidos do servidor
-    		if(bytesLeft > KBYTE) {
-    			byteCount = fwrite(dataBuffer, KBYTE, 1, ptrfile);
-    		}
-    		else {
-    			fwrite(dataBuffer, bytesLeft, 1, ptrfile);
-    		}
-    		// decrementa os bytes lidos
-    		bytesLeft -= KBYTE;
+					printf("SOKET %d\n", ++cont);
+					if(bytesLeft > KBYTE) {
+						byteCount = fwrite(fileRequestBuff._payload, KBYTE, 1, ptrfile);
+					} else {
+						fwrite(fileRequestBuff._payload, bytesLeft, 1, ptrfile);
+					}
+					// decrementa os bytes lidos
+					bytesLeft -= KBYTE;
+					usleep(100);
+					pthread_mutex_unlock(&mutex);
       }
-      fclose(ptrfile);
 
+			printf("closing file\n" );
+      fclose(ptrfile);
       time (&now);
 
 
@@ -519,7 +558,7 @@ void receive_file(struct packet responseThread, int socket, char*username) {
       file_info.size = fileSize;
 
       updateFileInfo(username, file_info);
-  }
+	}
 }
 
 void updateFileInfo(char *username, struct file_info file_info) {

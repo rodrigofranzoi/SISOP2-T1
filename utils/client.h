@@ -23,7 +23,7 @@ void client_interface();
 int commandRequest(char *request, char *file);
 void show_files();
 void close_connection();
-void get_file(char *file);
+void get_file(char *file, int shouldSaveOnMainDir);
 void createMainDir();
 void handleGetSyncDirClient();
 void list_client();
