@@ -213,44 +213,39 @@ void *sync_thread() {
 	create_sync_sock();
 	// get_all_files();
 
-	while (1) {
-		/* code */
+	while(1) {
+	  length = read( notifyfd, buffer, BUF_LEN );
+
+	  if ( length < 0 ) {
+	    perror( "read" );
+	  }
+
+	  while ( i < length ) {
+	    struct inotify_event *event = ( struct inotify_event * ) &buffer[ i ];
+	    if ( event->len ) {
+				if ( event->mask & IN_CLOSE_WRITE || event->mask & IN_CREATE || event->mask & IN_MOVED_TO) {
+					strcpy(path, directory);
+					strcat(path, "/");
+					strcat(path, event->name);
+					if(exists(path) && (event->name[0] != '.')) {
+						upload_file(path, sync_socket);
+					}
+				}
+				else if (event->mask & IN_DELETE || event->mask & IN_MOVED_FROM) {
+					strcpy(path, directory);
+					strcat(path, "/");
+					strcat(path, event->name);
+					if(event->name[0] != '.') {
+						delete_file_request(path, sync_socket);
+					}
+				}
+	    }
+	    i += EVENT_SIZE + event->len;
+  	}
+		i = 0;
+
+		sleep(10);
 	}
-	
-
-	// while(1) {
-	//   length = read( notifyfd, buffer, BUF_LEN );
-
-	//   if ( length < 0 ) {
-	//     perror( "read" );
-	//   }
-
-	//   while ( i < length ) {
-	//     struct inotify_event *event = ( struct inotify_event * ) &buffer[ i ];
-	//     if ( event->len ) {
-	// 			if ( event->mask & IN_CLOSE_WRITE || event->mask & IN_CREATE || event->mask & IN_MOVED_TO) {
-	// 				strcpy(path, directory);
-	// 				strcat(path, "/");
-	// 				strcat(path, event->name);
-	// 				if(exists(path) && (event->name[0] != '.')) {
-	// 				//	upload_file(path, sync_socket);
-	// 				}
-	// 			}
-	// 			else if (event->mask & IN_DELETE || event->mask & IN_MOVED_FROM) {
-	// 				strcpy(path, directory);
-	// 				strcat(path, "/");
-	// 				strcat(path, event->name);
-	// 				if(event->name[0] != '.') {
-	// 					delete_file_request(path, sync_socket);
-	// 				}
-	// 			}
-	//     }
-	//     i += EVENT_SIZE + event->len;
-  	// }
-	// 	i = 0;
-
-	// 	sleep(10);
-	// }
 }
 
 void initializeNotifyDescription() {
@@ -309,9 +304,9 @@ void get_all_files() {
 		bzero(file, sizeof(file));
 		// usleep(1000);
 	}
-	pthread_mutex_lock(&file_mutex2);
-	refreshSocket();
-	pthread_mutex_unlock(&file_mutex2);
+	// pthread_mutex_lock(&file_mutex2);
+	// refreshSocket();
+	// pthread_mutex_unlock(&file_mutex2);
 }
 
 int create_sync_sock() {
@@ -682,7 +677,7 @@ void show_files() {
 		printf("\nFile: %s \nLast modified: %sLast Access: %sLast Created: %ssize: %d\n", file_info.name, file_info.last_modified, ctime(&file_info.st.st_atime), ctime(&file_info.st.st_ctime), file_info.size);
 	}
 	pthread_mutex_unlock(&lock);
-	refreshSocket();
+	// refreshSocket();
 }
 
 void close_connection() {
