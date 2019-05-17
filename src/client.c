@@ -37,14 +37,6 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void refreshSocket(){
-	close_connection();
-	sockfd = -1;
-	connect_server(host, port);
-	sync_socket = -1;
-	create_sync_sock();
-}
-
 int initHost(char *argv[], int argc) {
     int resp = 1;
     
@@ -228,7 +220,8 @@ void *sync_thread() {
 					strcat(path, "/");
 					strcat(path, event->name);
 					if(exists(path) && (event->name[0] != '.')) {
-						upload_file(path, sync_socket);
+						printf("wants to upload %s event NAME %d\n", event->name, event->mask);
+						// upload_file(path, sync_socket);
 					}
 				}
 				else if (event->mask & IN_DELETE || event->mask & IN_MOVED_FROM) {
@@ -236,22 +229,26 @@ void *sync_thread() {
 					strcat(path, "/");
 					strcat(path, event->name);
 					if(event->name[0] != '.') {
-						delete_file_request(path, sync_socket);
+						printf("wants to DEKETE %s", event->name);
+						// delete_file_request(path, sync_socket);
 					}
 				}
 	    }
 	    i += EVENT_SIZE + event->len;
   	}
 		i = 0;
-
 		sleep(10);
 	}
 }
 
 void initializeNotifyDescription() {
 	notifyfd = inotify_init();
-
 	watchfd = inotify_add_watch(notifyfd, directory, IN_CLOSE_WRITE | IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO);
+
+}
+
+void shutdownNotify(){
+	notifyfd = inotify_rm_watch(notifyfd, watchfd);
 }
 
 pthread_mutex_t file_mutex2;
@@ -304,9 +301,6 @@ void get_all_files() {
 		bzero(file, sizeof(file));
 		// usleep(1000);
 	}
-	// pthread_mutex_lock(&file_mutex2);
-	// refreshSocket();
-	// pthread_mutex_unlock(&file_mutex2);
 }
 
 int create_sync_sock() {
@@ -531,7 +525,9 @@ void list_client(){
 		closedir(d);
 }
 
+pthread_mutex_t notify;
 void get_file(char *file, int shouldSaveOnMainDir) {
+	shutdownNotify();
 	int byteCount, bytesLeft, fileSize;
 	struct client_request clientRequest;
 	FILE* ptrfile;
@@ -605,6 +601,7 @@ void get_file(char *file, int shouldSaveOnMainDir) {
 
 	fclose(ptrfile);
 	printf("File %s has been downloaded\n\n", file);
+	initializeNotifyDescription();
 }
 
 int commandRequest(char *request, char *file) {
@@ -677,7 +674,6 @@ void show_files() {
 		printf("\nFile: %s \nLast modified: %sLast Access: %sLast Created: %ssize: %d\n", file_info.name, file_info.last_modified, ctime(&file_info.st.st_atime), ctime(&file_info.st.st_ctime), file_info.size);
 	}
 	pthread_mutex_unlock(&lock);
-	// refreshSocket();
 }
 
 void close_connection() {
