@@ -39,32 +39,26 @@ int main(int argc, char *argv[]) {
 		/* read from the socket */
 		n = read(newsockfd, &responseThread, sizeof(struct packet));
 		if (n < 0) {
-			printf("ERROR reading from socket");
-			printf("Closing Socket With Error\n");
-			close(newsockfd);
+			printf("ERROR reading from socket 1");
 		}
 
 		printf("Receive Initial Command %d\n", responseThread.payloadCommand);
 
 		if(responseThread.payloadCommand == 1) {
-				printf("Creating Client CMD Thread\n");
+			if(LOG_DEBUG)	printf("[LOG] - Creating Client CMD Thread\n");
 				if(pthread_create(&clientThread, NULL, client_thread, &newsockfd)) {
 					printf("ERROR creating thread\n");
 					return -1;
 				}
 		} else if (responseThread.payloadCommand == 0) {
-			printf("Creating Client Server Sync Thread\n");
+		if(LOG_DEBUG)	printf("[LOG] - Creating Client Server Sync Thread\n");
 			if(pthread_create(&syncThread, NULL, sync_thread_sv, &newsockfd)) {
 				printf("ERROR creating sync thread\n");
 				return -1;
 			}
 		} else if(responseThread.payloadCommand == 2){
-			printf("Creating Server Client Sync Thread\n");
+		if(LOG_DEBUG)	printf("[LOG] - Creating Server Client Sync Thread\n");
 			sync_thread_ServerClient(&newsockfd);
-			// if(pthread_create(&syncServerClient, NULL, sync_thread_ServerClient, &newsockfd)) {
-			// 	printf("ERROR creating sync thread\n");
-			// 	return -1;
-			// }
 		}
 	}
 	return 0;
@@ -167,7 +161,7 @@ void *client_thread (void *socket) {
 
   // erro de leitura
   if (byteCount < 1)
-    printf("ERROR reading from socket\n");
+    printf("ERROR reading from socket 2\n");
 
   // inicializa estrutura do client
   if (initializeClient(*client_socket, username, &client) > 0)
@@ -269,24 +263,20 @@ void close_client_connection(int socket, char *username) {
     if(client_node->client.devices[0] == DEVICE_FREE){
       client_node->client.devices[1] = DEVICE_FREE;
 			client_node->client.syncSocket[1] = DEVICE_FREE;
-			close(client_node->client.syncSocket[1]);
       client_node->client.logged = 0;
     }
     else if (client_node->client.devices[1] == DEVICE_FREE) {
       client_node->client.devices[0] = DEVICE_FREE;
 			client_node->client.syncSocket[0] = DEVICE_FREE;
-			close(client_node->client.syncSocket[0]);
       client_node->client.logged = 0;
     }
     else if (client_node->client.devices[0] == socket) {
 			client_node->client.devices[0] = DEVICE_FREE;
 			client_node->client.syncSocket[0] = DEVICE_FREE;
-			close(client_node->client.syncSocket[0]);
 		}
     else {
 			client_node->client.devices[1] = DEVICE_FREE;
 			client_node->client.syncSocket[1] = DEVICE_FREE;
-			close(client_node->client.syncSocket[1]);
 		}
   }
 }
@@ -388,7 +378,7 @@ int findNode(char *username, struct client_list *client_list, struct client_list
 }
 
 void sync_thread_ServerClient(void *socket) {
-	printf("[log] Initializer Sync Server Thread\n");
+	if(LOG_DEBUG) printf("[LOG] - Initializer Sync Server Thread\n");
 	int start = 0;
   int byteCount, connected;
   int *client_socket = (int*)socket;
@@ -397,36 +387,36 @@ void sync_thread_ServerClient(void *socket) {
 	struct client_list *client_node;
 
   // lê os dados de um cliente
-	printf("Esperando ler NOME\n");
+	if(LOG_DEBUG)	printf("[LOG] - Waiting to Read Name From Client\n");
   byteCount = read(*client_socket, &clientThread, sizeof(struct packet));
   strcpy(username, clientThread._payload);
 
-	printf("Receive name %s from server--client thread\n", username);
+	if(LOG_DEBUG) printf("[LOG] - Receive name %s from server--client thread\n", username);
 
   // erro de leitura
   if (byteCount < 1)
-    printf("ERROR reading from socket\n");
+    printf("ERROR reading from socket 3\n");
 
 
 	//insere socket do client no nodo para depois fazer a comunicacao
 	if (findNode(username, client_list, &client_node)){
-		printf("Inserted server--client socket to node\n");
+		if(LOG_DEBUG) printf("[LOG] - Inserted server--client socket to node\n");
 		if(client_node->client.syncSocket[0] == 0 && client_node->client.syncSocket[1] == 0){
 			client_node->client.syncSocket[0] = -1;
 			client_node->client.syncSocket[1] = -1;
 		}
-		printf("SYNC 0 %d, SYNC 1 %d", client_node->client.syncSocket[0], client_node->client.syncSocket[1]);
+		if(LOG_DEBUG) printf("[LOG] - SYNC 0: %d, SYNC 1 : %d\n", client_node->client.syncSocket[0], client_node->client.syncSocket[1]);
 		if(client_node->client.syncSocket[0] == -1){
-				printf("Inseriu Sync TO SOcket 1\n");
+				if(LOG_DEBUG) printf("[LOG] - Sync To Socket 1\n");
 				client_node->client.syncSocket[0] = *client_socket;
 		} else if(client_node->client.syncSocket[1] == -1) {
-				printf("Inseriu Sync TO SOcket 2\n");
+				if(LOG_DEBUG) printf("[LOG] - Sync To Socket 2\n");
 				client_node->client.syncSocket[1] = *client_socket;
 		} else {
-			printf("NAO INSIRIU NADA\n");
+			if(LOG_DEBUG) printf("[LOG] - Sync To Socket 1\n");
 		}
 	} else {
-		printf("FIND NODE FALSE\n");
+		if(LOG_DEBUG) printf("[LOG] - Client Node Is Not Inicialized\n");
 	}
 
    listen_syncServerClient(*client_socket, username);
@@ -443,7 +433,7 @@ void listen_syncServerClient(int client_socket, char *username) {
 }
 
 void *sync_thread_sv(void *socket) {
-	printf("[log] Initialized Sync Client Thread\n");
+	if(LOG_DEBUG)	printf("[LOG] - Initialized Sync Client Thread\n");
   int byteCount, connected;
   int *client_socket = (int*)socket;
   char username[USER_MAX_NAME];
@@ -455,7 +445,7 @@ void *sync_thread_sv(void *socket) {
 
   // erro de leitura
   if (byteCount < 1)
-    printf("ERROR reading from socket\n");
+    printf("ERROR reading from socket 4\n");
 
    listen_sync(*client_socket, username);
 }
@@ -468,7 +458,7 @@ void listen_sync(int client_socket, char *username) {
 		/* read from the socket */
 		byteCount = read(client_socket, &responseThread, sizeof(struct packet));
 		if (byteCount < 0) {
-			printf("ERROR reading from socket");
+			printf("ERROR reading from socket 5");
 		}
       switch (responseThread.payloadCommand) {
         case UPLOAD: if(responseThread.length > 0) receive_file(responseThread, client_socket, username); break;
@@ -481,21 +471,23 @@ void listen_sync(int client_socket, char *username) {
 }
 
 
-void signal_download2client(char *username, char *fileName) {
-	printf("[LOG]: Fazendo Download Signal Para Client\n");
+void signal_download2client(char *username, char *fileName, time_t *last_modified) {
+	if(LOG_DEBUG) printf("[LOG] - Download Signal Function\n");
 	struct client_list *client_node;
 	int MAX_SOCKET = 2;
 	int socket[MAX_SOCKET];
+	time_t *mod_time = (time_t*)last_modified;
 
 	if (findNode(username, client_list, &client_node)){
-		printf("Found Client %s Node\n", client_node->client.username);
+		if(LOG_DEBUG) printf("[LOG] - Found Client %s Node\n", client_node->client.username);
 		for(int i = 0; i < MAX_SOCKET; i++){
 			socket[i] = client_node->client.syncSocket[i];
 		}
 	}
 
-	printf("[LOG]: Socket Signal Username: %s\n", username);
-	printf("[LOG]: Socket Signal File %s\n", fileName);
+	if(LOG_DEBUG) printf("[LOG] - Socket Signal Username: %s\n", username);
+	if(LOG_DEBUG) printf("[LOG] - Socket Signal File: %s\n", fileName);
+	if(LOG_DEBUG) printf("[LOG] - Socket Signal Last Modified %s", ctime(mod_time));
 
 	for(int i = 0; i < MAX_SOCKET; i++){
 		if(socket[i] != -1){
@@ -504,14 +496,15 @@ void signal_download2client(char *username, char *fileName) {
 			//signal client que esta ok
 			clientThread.type = DATA;
 			clientThread.payloadCommand = 1; // 1 CMD PARA SIGNAL DWONLOAD
+			clientThread.lst_modified = *mod_time;
 			strcpy(clientThread._payload, fileName);
 			byteCount = write(socket[i], &clientThread, sizeof(struct packet));
 			if(byteCount < 0){
-				printf("[LOG]: Erro Enviando Socket Signal\n");
+				if(LOG_DEBUG) printf("[LOG] - Erro Sending Socket Signal\n");
 			}
-			printf("[LOG]: Socket Signal Enviado Com Sucesso\n");
+			printf("[LOG] - Socket Signal Sent\n");
 		} else {
-			printf("[LOG]: Socket2 Signal Para Client Nao Encontrado\n");
+			if(LOG_DEBUG) printf("[LOG] - Socket2 Signal Not Found\n");
 		}
 	}
 }
@@ -573,7 +566,7 @@ int getFileSize(FILE *ptrfile) {
 
 pthread_mutex_t mutex;
 void receive_file(struct packet responseThread, int socket, char*username) {
-	printf("RECEIVING NEW FILE\n");
+	if(LOG_DEBUG) printf("[LOG] - Receiving New File\n");
   int byteCount, bytesLeft, fileSize;
   FILE* ptrfile;
   char dataBuffer[KBYTE], path[200];
@@ -588,6 +581,10 @@ void receive_file(struct packet responseThread, int socket, char*username) {
   strcat(path, "/");
   strcat(path, file);
 
+	if(LOG_DEBUG) printf("[LOG] - Receiving New File Name: %s\n", file);
+	if(LOG_DEBUG) printf("[LOG] - Receiving New File Lenght: %d\n", fileSize);
+	if(LOG_DEBUG) printf("[LOG] - Receiving New File Lst Modified: %s\n", ctime(&responseThread.lst_modified));
+
   if (ptrfile = fopen(path, "wb")) {
 
       if (fileSize == 0) {
@@ -596,8 +593,8 @@ void receive_file(struct packet responseThread, int socket, char*username) {
 				printf("FILE SIZE IS == 0\n");
 
       	strcpy(file_info.name, file);
-        strcpy(file_info.last_modified, ctime(&now));
-        file_info.lst_modified = now;
+        strcpy(file_info.last_modified, ctime(&responseThread.lst_modified));
+        file_info.lst_modified = responseThread.lst_modified;
         file_info.size = fileSize;
         stat(path, &st);
         file_info.st = st;
@@ -639,12 +636,12 @@ void receive_file(struct packet responseThread, int socket, char*username) {
       stat(path, &st);
       file_info.st = st;
       strcpy(file_info.name, file);
-      strcpy(file_info.last_modified, ctime(&now));
-      file_info.lst_modified = now;
+      strcpy(file_info.last_modified, ctime(&responseThread.lst_modified));
+      file_info.lst_modified = responseThread.lst_modified;
       file_info.size = fileSize;
 
       updateFileInfo(username, file_info);
-			signal_download2client(username, file);
+			signal_download2client(username, file, &file_info.lst_modified);
 	}
 }
 

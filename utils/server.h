@@ -3,6 +3,7 @@
 
 #define DEVICE_FREE -1
 #define MAIN_REPOSITORY "./../repository"
+#define LOG_DEBUG 1
 
 struct client
 {
@@ -38,4 +39,4 @@ void close_client_connection(int socket, char *username);
 void send_file(char *file, int socket, char *username);
 void listen_syncServerClient(int client_socket, char *username);
 void sync_thread_ServerClient(void *socket);
-void signal_download2client(char *username, char *fileName);
+void signal_download2client(char *username, char *fileName, time_t *last_modified);
