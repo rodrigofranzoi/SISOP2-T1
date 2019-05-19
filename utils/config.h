@@ -52,6 +52,7 @@ typedef struct packet{
     uint32_t total_size;         //Número total de fragmentos
     uint32_t length;             //Comprimento do payload 
     char _payload[PAYLOAD_SIZE]; //Dados do pacote
+    time_t lst_modified;
     int payloadCommand;
 } packet;
 

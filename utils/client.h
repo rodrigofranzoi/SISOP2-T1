@@ -2,6 +2,7 @@
 
 #define EVENT_SIZE  ( sizeof (struct inotify_event) )
 #define BUF_LEN ( 1024 * ( EVENT_SIZE + 16 ) )
+#define LOG_DEBUG 1
 
 char commands[7][13] = {"upload", "download", "list_server", "get_sync_dir", "exit", "list_client", "delete"};
 
@@ -29,7 +30,6 @@ void handleGetSyncDirClient();
 void list_client();
 void delete_file(char* file);
 void refreshSocket();
-void shutdownNotify();
 void *sync_thread_server();
 int create_sync_sock_server();
 void signal2download(struct packet responseThread);
