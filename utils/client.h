@@ -30,3 +30,6 @@ void list_client();
 void delete_file(char* file);
 void refreshSocket();
 void shutdownNotify();
+void *sync_thread_server();
+int create_sync_sock_server();
+void signal2download(struct packet responseThread);

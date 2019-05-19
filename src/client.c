@@ -10,7 +10,9 @@ char username[USER_MAX_NAME];
 char *host;
 int port;
 char directory[FILENAME_MAX_SIZE + 50];
-int sockfd = -1, sync_socket = -1;
+int sockfd = -1, sync_socket = -1, sync_server_client_socket = -1;
+pthread_cond_t cond1  =  PTHREAD_COND_INITIALIZER; 
+pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER; 
 int notifyfd;
 int watchfd;
 
@@ -24,14 +26,14 @@ int main(int argc, char *argv[]) {
     //Verifica os parametros e configura o host
     if(initHost(argv, argc) == -1) exit(0);
 
-    if ((connect_server(host, port)) > 0) {
+     if ((connect_server(host, port)) > 0) {
 		// sincroniza diretório do servidor com o do cliente
 		  sync_client_first();
 		  
 
 		// espera por um comando de usuário
-		 client_interface();
-    }
+		  client_interface();
+     }
 
 
     return 0;
@@ -159,7 +161,7 @@ void sync_client_first() {
 
 	initializeNotifyDescription();
 
-	//cria thread para sincronização
+	//cria thread para sincronização Client Server
 	if(pthread_create(&syn_th, NULL, sync_thread, NULL)) {
 		printf("ERROR creating thread\n");
 	}
@@ -197,13 +199,57 @@ void handleGetSyncDirClient(){
 	get_all_files();
 }
 
+void *sync_thread_server() {
+	int byteCount;
+	create_sync_sock_server();
+
+
+    packet respUserPacket;
+	//Get Ok do server
+	printf("Waiting to get response OK from Server\n");
+    byteCount = read(sync_server_client_socket, &respUserPacket, sizeof(struct packet));
+    if (byteCount < 0) {
+ 	    printf("ERROR sending username to server\n");
+    }
+	if(respUserPacket.payloadCommand == 1) {
+		printf("[LOG] SYNC SERVER CLIENT OK %d\n\n", respUserPacket.payloadCommand);
+	}
+
+
+	do {
+		packet respServerPacket;
+		byteCount = read(sync_server_client_socket, &respServerPacket, sizeof(struct packet));
+		
+		switch (respServerPacket.payloadCommand) {
+		case S_DOWNLOAD: signal2download(respServerPacket); break;
+		case S_DELETE: printf("SERVER WANTS ME TO DELETE");  break;
+		default: break;
+		}
+	} while (1);
+
+
+}
+
+void signal2download(struct packet responseThread){
+	printf("SERVER WANTS ME TO MAKE DOWNLOAD");
+	printf("SIGNED FILENAME: %s", responseThread._payload);
+
+}
+
 void *sync_thread() {
 	int length, i = 0;
     char buffer[BUF_LEN];
 	char path[200];
+	pthread_t sync_server_client;
 
 	create_sync_sock();
 	// get_all_files();
+
+	//cria thread para sincronização Server Client
+	printf("[log] Creadted Thread Server--Client");
+	if(pthread_create(&sync_server_client, NULL, sync_thread_server, NULL)) {
+		printf("ERROR creating thread\n");
+	}
 
 	while(1) {
 	  length = read( notifyfd, buffer, BUF_LEN );
@@ -237,7 +283,7 @@ void *sync_thread() {
 	    i += EVENT_SIZE + event->len;
   	}
 		i = 0;
-		sleep(10);
+		usleep(10);
 	}
 }
 
@@ -301,6 +347,58 @@ void get_all_files() {
 		bzero(file, sizeof(file));
 		// usleep(1000);
 	}
+}
+
+int create_sync_sock_server() {
+	int byteCount, connected;
+	struct sockaddr_in server_addr;
+	struct hostent *server;
+	int client_thread = 0;
+	char buffer[256];
+
+	server = gethostbyname(host);
+	if (server == NULL) {
+  		return -1;
+	}
+
+	// tenta abrir o socket
+	if ((sync_server_client_socket = socket(AF_INET, SOCK_STREAM, 0)) == -1){
+		return -1;
+	}
+
+	// inicializa server_addr
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_port = htons(port);
+	server_addr.sin_addr = *((struct in_addr *)server->h_addr);
+
+	bzero(&(server_addr.sin_zero), 8);
+
+	// tenta conectar ao socket
+	if (connect(sync_server_client_socket,(struct sockaddr *) &server_addr,sizeof(server_addr)) < 0){
+			printf("TENTANDO CONECTAR COM SYNC SOCKET");
+		  return -1;
+	}
+
+	printf("Writing to server payload command 2\n");
+    packet threadSetter;
+    threadSetter.type = RESP;
+    threadSetter.payloadCommand = 2;
+	byteCount = write(sync_server_client_socket, &threadSetter, sizeof(struct packet));
+	if (byteCount < 0) {
+ 	    printf("ERROR sending 0 to zerverr\n");
+        return -1;
+    }
+
+	printf("Writing to server username command 2\n");
+    packet userPacket;
+    userPacket.type = RESP;
+    strcpy(userPacket._payload, username);
+	//envia username para o servidor
+    byteCount = write(sync_server_client_socket, &userPacket, sizeof(struct packet));
+    if (byteCount < 0) {
+ 	    printf("ERROR sending username to server\n");
+        return -1;
+    }
 }
 
 int create_sync_sock() {
@@ -694,6 +792,8 @@ void close_connection() {
 		printf("Error sending LIST message to server\n");
 
 	close(sockfd);
+	close(sync_server_client_socket);
+	close(sync_socket);
 	printf("Connection with server has been closed\n");
 }
 

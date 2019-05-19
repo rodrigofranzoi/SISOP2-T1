@@ -29,6 +29,9 @@
 #define DOWNLOAD 1
 #define UPLOAD 0
 
+#define S_DELETE 2
+#define S_DOWNLOAD 1
+
 // server
 #define PORT 4000
 
