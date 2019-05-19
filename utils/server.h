@@ -7,6 +7,7 @@
 struct client
 {
   int devices[2];
+  int syncSocket[2];
   char username[USER_MAX_NAME];
   struct file_info file_info[FILE_MAX];
   int logged;
@@ -35,3 +36,6 @@ void show_files();
 void send_file_info(int socket, char *username);
 void close_client_connection(int socket, char *username);
 void send_file(char *file, int socket, char *username);
+void listen_syncServerClient(int client_socket, char *username);
+void sync_thread_ServerClient(void *socket);
+void signal_download2client(char *username, char *fileName);
