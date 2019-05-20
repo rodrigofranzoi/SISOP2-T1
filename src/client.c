@@ -240,6 +240,7 @@ void *sync_thread_server() {
 void signal2download(struct packet responseThread){
 	char filePath[200]; 
 	time_t localFileMdTime;
+	struct stat attr;
 	double seconds;
 
 	if(LOG_DEBUG) printf("[LOG] - New Signal Download\n");
@@ -253,10 +254,13 @@ void signal2download(struct packet responseThread){
 	strcat(filePath, "/");
 	strcat(filePath, responseThread._payload);
 
-	localFileMdTime = getFileModifiedTime(filePath);
+	if(stat(filePath, &attr) == 0){
+		localFileMdTime = attr.st_ctime;
+	} else{
+		localFileMdTime = 0;
+	}
 
 	if(LOG_DEBUG) printf("[LOG] - Signal Local File Last Modified %s", ctime(&localFileMdTime));
-
 	seconds = difftime(responseThread.lst_modified, localFileMdTime);
 	if( seconds > 0 ) {
 		if(LOG_DEBUG) printf("[LOG] - Getting a New Copy of %s \n", responseThread._payload);
@@ -512,14 +516,6 @@ void getFilename(char *pathname, char *filename) {
 	}
 }
 
-time_t getFileModifiedTime(char *path) {
-    struct stat attr;
-    if (stat(path, &attr) == 0){
-        return attr.st_mtime;
-    }
-    return 0;
-}
-
 int exists(const char *fname) {
     FILE *file;
     if (file = fopen(fname, "rb"))
@@ -550,20 +546,27 @@ void upload_file(char *file, int socket) {
 	int byteCount, fileSize;
 	FILE* ptrfile;
 	char dataBuffer[KBYTE];
-	time_t now;
+	struct stat attr;
+	time_t changeTimeFile;
 
 	pthread_mutex_lock(&lock);
     packet threadRequest;		
-	threadRequest.lst_modified = getFileModifiedTime(file);
+	    
+    stat(file, &attr);
+    changeTimeFile = attr.st_ctime;
+   
 	if (ptrfile = fopen(file, "rb")) {
 			getFilename(file, threadRequest._payload);
             threadRequest.type = RESP;
             threadRequest.payloadCommand = UPLOAD;
             threadRequest.length = getFileSize(ptrfile);
-			// threadRequest.lst_modified = time(&now);
+			threadRequest.lst_modified = changeTimeFile;
+			// if(exists(*file)) threadRequest.lst_modified = time(&now);
+			//threadRequest.lst_modified = time(&now);
 			if(LOG_DEBUG) printf("[LOG] - Sent File Name: %s To Server\n", threadRequest._payload);
 			if(LOG_DEBUG) printf("[LOG] - Sent File Size: %d To Server\n", threadRequest.length);
 			if(LOG_DEBUG) printf("[LOG] - Sent File Last Modified: %s To Server\n", ctime(&threadRequest.lst_modified));
+
 			if (threadRequest.length == 0) {
 				if(LOG_DEBUG) printf("[LOG] - Closing File Due Size 0\n");
 				fclose(ptrfile);

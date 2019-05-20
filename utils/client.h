@@ -15,7 +15,6 @@ void initializeNotifyDescription();
 void get_all_files();
 int create_sync_sock();
 void getFilename(char *pathname, char *filename);
-time_t getFileModifiedTime(char *path);
 int exists(const char *fname);
 void delete_file_request(char* file, int socket);
 int getFileSize(FILE *ptrfile);
