@@ -7,6 +7,7 @@ int main(int argc, char *argv[]) {
 	socklen_t clilen;
 	pthread_t clientThread, syncThread, syncServerClient;
 	struct sockaddr_in serv_addr, cli_addr;
+	struct socketPacket socketPacket;
 
 	//Inicializando a lista de clients
 	client_list = NULL;
@@ -52,7 +53,9 @@ int main(int argc, char *argv[]) {
 				}
 		} else if (responseThread.payloadCommand == 0) {
 		if(LOG_DEBUG)	printf("[LOG] - Creating Client Server Sync Thread\n");
-			if(pthread_create(&syncThread, NULL, sync_thread_sv, &newsockfd)) {
+			socketPacket.socket = newsockfd;
+			socketPacket.packet = responseThread;
+			if(pthread_create(&syncThread, NULL, sync_thread_sv, &socketPacket)) {
 				printf("ERROR creating sync thread\n");
 				return -1;
 			}
@@ -212,10 +215,32 @@ void listen_client(int client_socket, char *username) {
   } while(clientRequest.payloadCommand != EXIT);
 }
 
+struct file_info getFileInfo(char *username, char*filename){
+	struct client_list *client_node;
+	struct file_info file;
+	//insere socket do client no nodo para depois fazer a comunicacao
+	if (findNode(username, client_list, &client_node)){
+			for(int i = 0; i < FILE_MAX; i++){
+				if(strcmp(client_node->client.file_info[i].name, filename)){
+					return client_node->client.file_info[i];
+				}
+			}
+	} else {
+		if(LOG_DEBUG) printf("[LOG] - Client Node Not Found.\n");
+	}
+
+	return file;
+}
+
 void send_file(char *file, int socket, char *username) {
 	int byteCount, bytesLeft, fileSize;
 	FILE* ptrfile;
 	char dataBuffer[KBYTE], path[KBYTE];
+	struct file_info file_info;
+
+	file_info = getFileInfo(username, file);
+
+	pthread_mutex_lock(&file_info.file_mutex);
 
 	printf("FILE NAME%s\n", file);
   strcpy(path, username);
@@ -249,6 +274,7 @@ void send_file(char *file, int socket, char *username) {
 		clientCMDSize.length = fileSize;
     byteCount = write(socket, &clientCMDSize, sizeof(struct packet));
   }
+	pthread_mutex_unlock(&file_info.file_mutex);
 }
 
 
@@ -432,22 +458,26 @@ void listen_syncServerClient(int client_socket, char *username) {
 	write(client_socket, &clientThread, sizeof(struct packet));
 }
 
-void *sync_thread_sv(void *socket) {
+
+void *sync_thread_sv(void *socketPacket) {
 	if(LOG_DEBUG)	printf("[LOG] - Initialized Sync Client Thread\n");
   int byteCount, connected;
-  int *client_socket = (int*)socket;
+	struct socketPacket *pkt = (struct socketPacket*) socketPacket;
+  int client_socket = pkt->socket;
   char username[USER_MAX_NAME];
   struct packet clientThread;
 
   // lê os dados de um cliente
-  byteCount = read(*client_socket, &clientThread, sizeof(struct packet));
-  strcpy(username, clientThread._payload);
+	printf("[LOG] - Waiting to Client Send Name\n");
+  // byteCount = read(client_socket, &clientThread, sizeof(struct packet));
+  strcpy(username, pkt->packet._payload);
+	printf("[LOG] - Received Sync Client Thread Name: %s\n", username);
 
-  // erro de leitura
-  if (byteCount < 1)
-    printf("ERROR reading from socket 4\n");
+  // if (byteCount < 1)
+  //   printf("ERROR reading from socket 4\n");
 
-   listen_sync(*client_socket, username);
+
+   listen_sync(client_socket, username);
 }
 
 void listen_sync(int client_socket, char *username) {
@@ -460,6 +490,7 @@ void listen_sync(int client_socket, char *username) {
 		if (byteCount < 0) {
 			printf("ERROR reading from socket 5");
 		}
+			printf("[LOG] - Receive SYNC CMD %d ", responseThread.payloadCommand);
       switch (responseThread.payloadCommand) {
         case UPLOAD: if(responseThread.length > 0) receive_file(responseThread, client_socket, username); break;
         case DOWNLOADALL: send_all_files(client_socket, username); break;
@@ -509,6 +540,40 @@ void signal_download2client(char *username, char *fileName, time_t *last_modifie
 	}
 }
 
+void signal_delete2client(char *username, char *fileName){
+	if(LOG_DEBUG) printf("[LOG] - Delete Signal Function\n");
+	struct client_list *client_node;
+	int MAX_SOCKET = 2;
+	int socket[MAX_SOCKET];
+
+	if (findNode(username, client_list, &client_node)){
+		if(LOG_DEBUG) printf("[LOG] - Found Client %s Node\n", client_node->client.username);
+		for(int i = 0; i < MAX_SOCKET; i++){
+			socket[i] = client_node->client.syncSocket[i];
+		}
+	}
+
+	if(LOG_DEBUG) printf("[LOG] - Socket Signal Username: %s\n", username);
+	if(LOG_DEBUG) printf("[LOG] - Socket Signal File: %s\n", fileName);
+
+	for(int i = 0; i < MAX_SOCKET; i++){
+		if(socket[i] != -1){
+			int byteCount;
+			struct packet clientThread;
+			//signal client que esta ok
+			clientThread.type = DATA;
+			clientThread.payloadCommand = 2; // 1 CMD PARA SIGNAL DWONLOAD
+			strcpy(clientThread._payload, fileName);
+			byteCount = write(socket[i], &clientThread, sizeof(struct packet));
+			if(byteCount < 0){
+				if(LOG_DEBUG) printf("[LOG] - Erro Sending Socket Signal\n");
+			}
+			printf("[LOG] - Socket Signal Sent\n");
+		} else {
+			if(LOG_DEBUG) printf("[LOG] - Socket2 Signal Not Found\n");
+		}
+	}
+}
 
 //pthread_mutex_t t1, t2;
 void send_all_files(int client_socket, char *username) {
@@ -574,6 +639,8 @@ void receive_file(struct packet responseThread, int socket, char*username) {
   struct file_info file_info;
   struct stat st;
   time_t now;
+
+	pthread_mutex_lock(&file_info.file_mutex);
 
 	fileSize = responseThread.length;
 	strcpy(file, responseThread._payload);
@@ -642,6 +709,7 @@ void receive_file(struct packet responseThread, int socket, char*username) {
 
       updateFileInfo(username, file_info);
 			signal_download2client(username, file, &file_info.lst_modified);
+			pthread_mutex_unlock(&file_info.file_mutex);
 	}
 }
 
@@ -682,4 +750,5 @@ void delete_file(char *file, int socket, char *username) {
   file_info.size = -1;
 
   updateFileInfo(username, file_info);
+	signal_delete2client(username, file);
 }

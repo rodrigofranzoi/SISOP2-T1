@@ -20,12 +20,17 @@ struct client_list
   struct client_list *next;
 };
 
+struct socketPacket{
+  struct packet packet;
+  int socket;
+};
+
 void insertList(struct client_list **client_list, struct client client);
 int initializeClientList();
 void *client_thread (void *socket);
 int initializeClient(int client_socket, char *username, struct client *client);
 int findNode(char *username, struct client_list *client_list, struct client_list **client_node);
-void *sync_thread_sv(void *socket);
+void *sync_thread_sv(void *socketPacket);
 void listen_sync(int client_socket, char *username);
 void send_all_files(int client_socket, char *username);
 int getFileSize(FILE *ptrfile);
@@ -40,3 +45,5 @@ void send_file(char *file, int socket, char *username);
 void listen_syncServerClient(int client_socket, char *username);
 void sync_thread_ServerClient(void *socket);
 void signal_download2client(char *username, char *fileName, time_t *last_modified);
+void signal_delete2client(char *username, char *fileName);
+struct file_info getFileInfo(char *username, char*filename);
