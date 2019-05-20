@@ -33,3 +33,6 @@ void refreshSocket();
 void *sync_thread_server();
 int create_sync_sock_server();
 void signal2download(struct packet responseThread);
+void signal2delete(struct packet responseThread);
+void shutdownInotify();
+void addWatchInotify();
