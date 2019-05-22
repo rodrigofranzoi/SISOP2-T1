@@ -355,8 +355,8 @@ int initializeClient(int client_socket, char *username, struct client *client) {
     }
     client->logged = 1;
 
-		client_node->client.syncSocket[0] = -1;
-		client_node->client.syncSocket[1] = -1;
+		client->syncSocket[0] = -1;
+		client->syncSocket[1] = -1;
 
     // insere cliente na lista de client
     insertList(&client_list, *client);
