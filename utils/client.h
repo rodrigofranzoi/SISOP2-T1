@@ -3,6 +3,14 @@
 #define EVENT_SIZE  ( sizeof (struct inotify_event) )
 #define BUF_LEN ( 1024 * ( EVENT_SIZE + 16 ) )
 #define LOG_DEBUG 1
+#define MAGICTRICK 1000
+
+#include <sys/file.h>
+#include <libgen.h>
+#define   LOCK_SH   1    /* shared lock */
+#define   LOCK_EX   2    /* exclusive lock */
+#define   LOCK_NB   4    /* don't block when locking */
+#define   LOCK_UN   8    /* unlock */
 
 char commands[7][13] = {"upload", "download", "list_server", "get_sync_dir", "exit", "list_client", "delete"};
 

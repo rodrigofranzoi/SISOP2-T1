@@ -42,7 +42,7 @@ int initHost(char *argv[], int argc) {
     int resp = 1;
     
     if (argc < 3) {
-		printf("Insufficient arguments: user, hostname or port \n");
+		printf("[LOG] - Insufficient arguments: user, hostname or port \n");
 		return -1;
     }
 
@@ -50,7 +50,7 @@ int initHost(char *argv[], int argc) {
 	if (strlen(argv[1]) <= USER_MAX_NAME) {
         strcpy(username, argv[1]);
     } else {
-        printf("User Name Is Too long \n");
+        printf("[LOG] - User Name Is Too long \n");
         return -1;
     };
 
@@ -76,13 +76,13 @@ int connect_server (char *host, int port) {
     // Inicializa Server
 	server = gethostbyname(host);
 	if (server == NULL) {
-        printf("ERROR, no such host\n");
+        printf("[LOG] - ERROR, no such host\n");
         return -1;
     }
 
 	// Inicializa Socket
 	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1){
-		printf("ERROR opening socket\n");
+		printf("[LOG] - ERROR opening socket\n");
 		return -1;
 	}
 
@@ -94,7 +94,7 @@ int connect_server (char *host, int port) {
 
     // Testa Socket
 	if (connect(sockfd,(struct sockaddr *) &server_addr,sizeof(server_addr)) < 0) {
-  		printf("ERROR connecting\n");
+  		printf("[LOG] - ERROR connecting\n");
 		return -1;
 	}
 
@@ -110,22 +110,21 @@ int connect_server (char *host, int port) {
 	//envia username para o servidor
     socketByteSize = write(sockfd, &userPacket, sizeof(struct packet));
     if (socketByteSize < 0) {
- 	    printf("ERROR sending username to server\n");
+ 	    printf("[LOG] - ERROR sending username to server\n");
         return -1;
     }
 
 	socketByteSize = read(sockfd, &connected, sizeof(struct packet));
 
     if(connected.type ==  RESP){
-        printf("respo payload %d\n", connected.payloadCommand);
         if (socketByteSize < 0){
-            printf("ERROR receiving connected message\n");
+            printf("[LOG] - ERROR receiving connected message\n");
             return -1;
         } else if (connected.payloadCommand) {
-            printf("connected\n");
+            printf("[LOG] - Connected\n");
             return 1;
         } else {
-            printf("You already have two devices connected\n");
+            printf("[LOG] - You already have two devices connected\n");
             return -1;
         }
     } else return -1;
@@ -137,7 +136,6 @@ void sync_client_first() {
 	pthread_t syn_th, sync_server_client;
 
 	if ((homedir = getenv("HOME")) == NULL) {
-        printf("entrei aqui e n sei pq");
         homedir = getpwuid(getuid())->pw_dir;
     }
 	// nome do arquivo
@@ -155,7 +153,7 @@ void sync_client_first() {
 	}
 	// diretório não existe
 	else {
-		printf("Creating %s directory in your home\n", fileName);
+		printf("[LOG] - Creating %s directory in your home\n", fileName);
 	}
 
 	initializeNotifyDescription();
@@ -166,7 +164,6 @@ void sync_client_first() {
 	}
 
 	//cria thread para sincronização Server Client
-	printf("[log] Creadted Thread Server--Client");
 	if(pthread_create(&sync_server_client, NULL, sync_thread_server, NULL)) {
 		printf("ERROR creating thread\n");
 	}
@@ -177,7 +174,6 @@ void createMainDir(){
 	char fileName[FILE_MAX + 10] = "sync_dir_";
 
 	if ((homedir = getenv("HOME")) == NULL) {
-        printf("entrei aqui e n sei pq");
         homedir = getpwuid(getuid())->pw_dir;
     }
 	// nome do arquivo
@@ -195,7 +191,7 @@ void createMainDir(){
 	}
 	// diretório não existe
 	else {
-		printf("Creating %s directory in your home\n", fileName);
+		printf("[LOG] - Creating %s directory in your home\n", fileName);
 	}
 }
 
@@ -211,13 +207,13 @@ void *sync_thread_server() {
 
     packet respUserPacket;
 	//Get Ok do server
-	printf("Waiting to get response OK from Server\n");
+	if(LOG_DEBUG) printf("[SYNC_SERVER] - Waiting to get response OK from Server\n");
     byteCount = read(sync_server_client_socket, &respUserPacket, sizeof(struct packet));
     if (byteCount < 0) {
- 	    printf("ERROR sending username to server\n");
+ 	    printf("[SYNC_SERVER] - ERROR sending username to server\n");
     }
 	if(respUserPacket.payloadCommand == 1) {
-		printf("[LOG] SYNC SERVER CLIENT OK %d\n\n", respUserPacket.payloadCommand);
+		if(LOG_DEBUG) printf("[SYNC_SERVER] - SYNC SERVER CLIENT OK %d\n\n", respUserPacket.payloadCommand);
 	}
 
 
@@ -225,7 +221,7 @@ void *sync_thread_server() {
 		packet respServerPacket;
 		byteCount = read(sync_server_client_socket, &respServerPacket, sizeof(struct packet));
 
-		if(LOG_DEBUG) printf("[LOG] - Server CMD %d \n", respServerPacket.payloadCommand);
+		if(LOG_DEBUG) printf("[SYNC_SERVER] - Server CMD %d \n", respServerPacket.payloadCommand);
 		
 		switch (respServerPacket.payloadCommand) {
 			case S_DOWNLOAD: signal2download(respServerPacket); break;
@@ -243,11 +239,9 @@ void signal2download(struct packet responseThread){
 	struct stat attr;
 	double seconds;
 
-	if(LOG_DEBUG) printf("[LOG] - New Signal Download\n");
-	if(LOG_DEBUG) printf("[LOG] - Signal File Name %s \n", responseThread._payload);
-	if(LOG_DEBUG) printf("[LOG] - Signal File Last Modified %s", ctime(&responseThread.lst_modified));
-
-
+	if(LOG_DEBUG) printf("[SIGNAL_DOWNLOAD] - New Signal Download\n");
+	if(LOG_DEBUG) printf("[SIGNAL_DOWNLOAD] - Signal File Name %s \n", responseThread._payload);
+	if(LOG_DEBUG) printf("[SIGNAL_DOWNLOAD] - Signal File Last Modified %s", ctime(&responseThread.lst_modified));
 
 
 	strcpy(filePath, directory);
@@ -260,29 +254,36 @@ void signal2download(struct packet responseThread){
 		localFileMdTime = 0;
 	}
 
-	if(LOG_DEBUG) printf("[LOG] - Signal Local File Last Modified %s", ctime(&localFileMdTime));
+	if(LOG_DEBUG) printf("[SIGNAL_DOWNLOAD] - Signal Local File Last Modified %s", ctime(&localFileMdTime));
 	seconds = difftime(responseThread.lst_modified, localFileMdTime);
 	if( seconds > 0 ) {
-		if(LOG_DEBUG) printf("[LOG] - Getting a New Copy of %s \n", responseThread._payload);
+		if(LOG_DEBUG) printf("[SIGNAL_DOWNLOAD] - Getting a New Copy of %s \n", responseThread._payload);
+		sleep(1.5);
 		get_file(responseThread._payload, 1);
 	} else {
-		if(LOG_DEBUG) printf("[LOG] - Signal File Name %s Is Already Up to Date \n", responseThread._payload);
+		if(LOG_DEBUG) printf("[SIGNAL_DOWNLOAD] - Signal File Name %s Is Already Up to Date \n", responseThread._payload);
 	}
+
+	if(LOG_DEBUG) printf("[SIGNAL_DOWNLOAD] - END \n\n");
 }
 
 void signal2delete(struct packet responseThread){
 	char filePath[200];
 
-	if(LOG_DEBUG) printf("[LOG] - New Signal Delet\n");
-	if(LOG_DEBUG) printf("[LOG] - Signal File Name %s \n", responseThread._payload);
+	if(LOG_DEBUG) printf("[SIGNAL_DELETE] - New Signal Delet\n");
+	if(LOG_DEBUG) printf("[SIGNAL_DELETE] - Signal File Name %s \n", responseThread._payload);
 
 	delete_file(responseThread._payload);
+
+	if(LOG_DEBUG) printf("[SIGNAL_DELETE] - END \n\n");
 }
 
 void *sync_thread() {
 	int length, i = 0;
     char buffer[BUF_LEN];
 	char path[200];
+	char lasEvent[200];
+	bzero(lasEvent, sizeof(lasEvent));
 
 	create_sync_sock();
 	// get_all_files();
@@ -295,14 +296,15 @@ void *sync_thread() {
 	  }
 
 	  while ( i < length ) {
-	    struct inotify_event *event = ( struct inotify_event * ) &buffer[ i ];
+	    struct inotify_event *event = ( struct inotify_event * ) &buffer[ i ];		
 	    if ( event->len ) {
-				if ( event->mask & IN_CLOSE_WRITE || event->mask & IN_MOVED_TO) {
+				if ( event->mask & IN_CLOSE_WRITE || event->mask & IN_CREATE || event->mask & IN_MOVED_TO) {
 					strcpy(path, directory);
 					strcat(path, "/");
 					strcat(path, event->name);
 					if(exists(path) && (event->name[0] != '.')) {
-						if(LOG_DEBUG) printf("[LOG] - Inotify Uploading File %s Under Event %d\n", event->name, event->mask);
+						if(LOG_DEBUG) printf("\n\n\n[INOTIFY] - THIS EVENT %s LAST EVENT %d\n\n\n", event->name, event->mask);
+						sleep(1);
 						upload_file(path, sync_socket);
 					}
 				}
@@ -311,70 +313,73 @@ void *sync_thread() {
 					strcat(path, "/");
 					strcat(path, event->name);
 					if(event->name[0] != '.') {
-						if(LOG_DEBUG) printf("[LOG] - Inotify Deleting File %s Under Event %d\n", event->name, event->mask);
+						if(LOG_DEBUG) printf("[INOTIFY] - Inotify Deleting File %s Under Event %d\n", event->name, event->mask);
 						delete_file_request(path, sync_socket);
 					}
-				}
+				}		
 	    }
-	    i += EVENT_SIZE + event->len;
-  	}
+	    i += EVENT_SIZE + event->len;	
+  	  }
 		i = 0;
-		usleep(10);
+		usleep(MAGICTRICK);
 	}
 }
 
 void initializeNotifyDescription() {
-	printf("[LOG] - Started Watch Inotify\n");
+	printf("[INIT_NOTIFY] - Started Watch Inotify\n");
 	notifyfd = inotify_init();
 	watchfd = inotify_add_watch(notifyfd, directory, IN_CLOSE_WRITE | IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO);
+	if(LOG_DEBUG) printf("[INIT_NOTIFY] - END \n\n");
 }
 
 void shutdownInotify(){
 	int ret;
 	ret = inotify_rm_watch(notifyfd, watchfd);
 	if(ret < 0) {
-		printf("[LOG] - Removed Watch Inotify Error\n");
+		printf("[SHUTDOWN_NOTIFY] - Removed Watch Inotify Error\n");
 	} else {
-		printf("[LOG] - Removed Watch Inotify OK\n");
+		printf("[SHUTDOWN_NOTIFY] - Removed Watch Inotify OK\n");
 	}
+	if(LOG_DEBUG) printf("[SHUTDOWN_NOTIFY] - END \n\n");
 }
 
 void addWatchInotify(){
-	printf("[LOG] - Added Watch Inotify\n");
+	printf("[ADD_NOTIFY] - Added Watch Inotify\n");
 	watchfd = inotify_add_watch(notifyfd, directory, IN_CLOSE_WRITE | IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO);
+	if(LOG_DEBUG) printf("[ADD_NOTIFY] - END \n\n");
 }
 
 pthread_mutex_t file_mutex2;
 pthread_mutex_t file_mutex3;
 void get_all_files() {
-	printf("[LOG] - Getting All Files From Server\n");
+	printf("[GET_ALL_FILES] - Getting All Files From Server\n");
 	int byteCount, bytesLeft, fileSize, fileNum, i;
 	FILE* ptrfile;
 	char dataBuffer[KBYTE], file[FILENAME_MAX_SIZE], path[KBYTE];
 
 	// copia nome do arquivo e comando para enviar para o servidor
-	printf("[LOG] - Making Download Request\n");
+	printf("[GET_ALL_FILES] - Making Download Request\n");
     packet threadRequest;
     threadRequest.type = CMD;
     threadRequest.payloadCommand = DOWNLOADALL;
 	byteCount = write(sync_socket, &threadRequest, sizeof(struct packet));
 	if (byteCount < 0){
-		printf("Error sending DOWNLOAD message to server\n");
+		printf("[GET_ALL_FILES] - Error sending DOWNLOAD message to server\n");
 	}
 		
 	packet connection;
-	printf("[LOG] - Waiting Server to Respond Number of Files\n");
+	printf("[GET_ALL_FILES] - Waiting Server to Respond Number of Files\n");
 	byteCount = read(sync_socket, &connection, sizeof(struct packet));
 	if (byteCount < 0){
-		printf("Error FILENUM \n");
+		printf("[GET_ALL_FILES] - Error FILENUM \n");
 	}		
 	fileNum = connection.payloadCommand;
-	printf("[LOG] - File Number on Server: %d\n", fileNum);
+	printf("[GET_ALL_FILES] - File Number on Server: %d\n", fileNum);
 	for(i = 0; i < fileNum; i++) {
 		// lê nome do arquivo do servidor
-		printf("[LOG] - Starting to Get File Num: %d\n", i);
+		printf("[GET_ALL_FILES] - Starting to Get File Num: %d\n", i);
 		packet connectionFile;
-		printf("[LOG] - Waiting to Server Send File Name");
+		printf("[GET_ALL_FILES] - Waiting to Server Send File Name\n");
 		byteCount = read(sync_socket, &connectionFile, sizeof(struct packet));
 		if (byteCount < 0) {
 			printf("Error receiving filename\n");
@@ -385,13 +390,14 @@ void get_all_files() {
 		strcat(path, "/");
 		strcat(path, file);
 
-		printf("[LOG] - Receive File Name: %s\n", file);
+		printf("[GET_ALL_FILES] - Receive File Name: %s\n", file);
 		// pthread_mutex_lock(&file_mutex2);
 		get_file(file, 1);
 		// pthread_mutex_unlock(&file_mutex2);
 		bzero(file, sizeof(file));
-		usleep(100);
+		usleep(MAGICTRICK);
 	}
+	if(LOG_DEBUG) printf("[GET_ALL_FILES] - END \n\n");
 }
 
 int create_sync_sock_server() {
@@ -420,28 +426,28 @@ int create_sync_sock_server() {
 
 	// tenta conectar ao socket
 	if (connect(sync_server_client_socket,(struct sockaddr *) &server_addr,sizeof(server_addr)) < 0){
-			printf("TENTANDO CONECTAR COM SYNC SOCKET");
+		printf("[SYNC_SERVER] - TENTANDO CONECTAR COM SYNC SOCKET");
 		  return -1;
 	}
 
-	printf("Writing to server payload command 2\n");
+	printf("[SYNC_SERVER] - Starting Server On Cmd 2\n");
     packet threadSetter;
     threadSetter.type = RESP;
     threadSetter.payloadCommand = 2;
 	byteCount = write(sync_server_client_socket, &threadSetter, sizeof(struct packet));
 	if (byteCount < 0) {
- 	    printf("ERROR sending 0 to zerverr\n");
+ 	    printf("[SYNC_SERVER] - ERROR sending 0 to zerverr\n");
         return -1;
     }
 
-	printf("Writing to server username command 2\n");
+	printf("[SYNC_SERVER] - Writing To Server Username\n");
     packet userPacket;
     userPacket.type = RESP;
     strcpy(userPacket._payload, username);
 	//envia username para o servidor
     byteCount = write(sync_server_client_socket, &userPacket, sizeof(struct packet));
     if (byteCount < 0) {
- 	    printf("ERROR sending username to server\n");
+ 	    printf("[SYNC_SERVER] - ERROR Sending Username To Server\n");
         return -1;
     }
 }
@@ -475,7 +481,7 @@ int create_sync_sock() {
 
 	// tenta conectar ao socket
 	if (connect(sync_socket,(struct sockaddr *) &server_addr,sizeof(server_addr)) < 0){
-			printf("TENTANDO CONECTAR COM SYNC SOCKET");
+			printf("[SYNC] - TENTANDO CONECTAR COM SYNC SOCKET");
 		  return -1;
 	}
 
@@ -489,19 +495,6 @@ int create_sync_sock() {
         return -1;
     }
 	
-
-    // packet userPacket;
-    // userPacket.type = RESP;
-    // strcpy(userPacket._payload, username);
-	// //envia username para o servidor
-	// printf("[LOG] - Sending Server Name %s\n", username);
-    // byteCount = write(sync_socket, &userPacket, sizeof(struct packet));
-    // if (byteCount < 0) {
- 	//     printf("ERROR sending username to server\n");
-    //     return -1;
-    // }
-
-
 }
 
 // função que extrai o nome do arquivo a partir de um pathname
@@ -518,31 +511,36 @@ void getFilename(char *pathname, char *filename) {
 
 int exists(const char *fname) {
     FILE *file;
-    if (file = fopen(fname, "rb"))
-    {
+	shutdownInotify();
+    if (file = fopen(fname, "rb")){
         fclose(file);
+		addWatchInotify();
         return 1;
     }
+	addWatchInotify();
     return 0;
 }
 
 void delete_file_request(char* file, int socket) {
+	if(LOG_DEBUG) printf("[DELETE_FILE] - Starting Delete\n");
 	int byteCount;
-
     packet threadRequest;
     threadRequest.type = CMD;
     threadRequest.payloadCommand = DELETE;
-
 	getFilename(file, threadRequest._payload);
 
+	if(LOG_DEBUG) printf("[DELETE_FILE] - Sent File Name: %s To Server\n", threadRequest._payload);
 	byteCount = write(socket, &threadRequest, sizeof(struct packet));
 
-	if (byteCount < 0)
-		printf("ERROR sending delete file request\n");
+	if (byteCount < 0) {
+		printf("[DELETE_FILE] - ERROR sending delete file request\n");
+	}
+
+	if(LOG_DEBUG) printf("[DELETE_FILE] - END \n\n");	
 }
 
 void upload_file(char *file, int socket) {
-	if(LOG_DEBUG) printf("[LOG] - Getting Ready To Upload File\n");
+	if(LOG_DEBUG) printf("[UPLOAD_FILE] - Getting Ready To Upload File\n");
 	int byteCount, fileSize;
 	FILE* ptrfile;
 	char dataBuffer[KBYTE];
@@ -550,6 +548,7 @@ void upload_file(char *file, int socket) {
 	time_t changeTimeFile;
 
 	pthread_mutex_lock(&lock);
+	shutdownInotify();
     packet threadRequest;		
 	    
     stat(file, &attr);
@@ -561,14 +560,12 @@ void upload_file(char *file, int socket) {
             threadRequest.payloadCommand = UPLOAD;
             threadRequest.length = getFileSize(ptrfile);
 			threadRequest.lst_modified = changeTimeFile;
-			// if(exists(*file)) threadRequest.lst_modified = time(&now);
-			//threadRequest.lst_modified = time(&now);
-			if(LOG_DEBUG) printf("[LOG] - Sent File Name: %s To Server\n", threadRequest._payload);
-			if(LOG_DEBUG) printf("[LOG] - Sent File Size: %d To Server\n", threadRequest.length);
-			if(LOG_DEBUG) printf("[LOG] - Sent File Last Modified: %s To Server\n", ctime(&threadRequest.lst_modified));
+			if(LOG_DEBUG) printf("[UPLOAD_FILE] - File Name: %s \n", threadRequest._payload);
+			if(LOG_DEBUG) printf("[UPLOAD_FILE] - File Size: %d \n", threadRequest.length);
+			if(LOG_DEBUG) printf("[UPLOAD_FILE] - File Last Modified: %s", ctime(&threadRequest.lst_modified));
 
 			if (threadRequest.length == 0) {
-				if(LOG_DEBUG) printf("[LOG] - Closing File Due Size 0\n");
+				if(LOG_DEBUG) printf("[UPLOAD_FILE] - Closing File Due Size 0\n");
 				fclose(ptrfile);
 				return;
 			}
@@ -576,8 +573,7 @@ void upload_file(char *file, int socket) {
 
 		int cont =0;
 			while(!feof(ptrfile)) {
-				// pthread_mutex_lock(&file_mutex);
-				if(LOG_DEBUG) printf("[LOG] - Sending Pack Number %d\n", ++cont);
+				if(LOG_DEBUG) printf("[UPLOAD_FILE] - Sending Pack Number %d\n", ++cont);
 					packet fileRequestBuff;
 					fread(dataBuffer, sizeof(dataBuffer), 1, ptrfile);
 					fileRequestBuff.type = DATA;
@@ -588,30 +584,33 @@ void upload_file(char *file, int socket) {
 					if(byteCount < 0){
 						printf("ERROR sending file\n");	
 					}
-					bzero(dataBuffer, sizeof(dataBuffer));
-					// pthread_mutex_unlock(&file_mutex);
-					// usleep(1000);			
+					bzero(dataBuffer, sizeof(dataBuffer));		
 			}
 			fclose(ptrfile);
 
 			if (socket != sync_socket)
-				printf("the file has been uploaded\n");
+				printf("[LOG] - The File %s Has Been Uploaded\n", file);
 	}
 	// arquivo não existe
 	else {
-		printf("ERROR this file doesn't exist\n\n");
+		printf("[UPLOAD_FILE] - ERROR this file doesn't exist\n\n");
 	}	
+	addWatchInotify();
 	pthread_mutex_unlock(&lock);
+	if(LOG_DEBUG) printf("[UPLOAD_FILE] - END \n\n");
 }
 
 int getFileSize(FILE *ptrfile) {
+	if(LOG_DEBUG) printf("[FILE_SIZE] - Starting \n");
 	int size;
 
 	fseek(ptrfile, 0L, SEEK_END);
 	size = ftell(ptrfile);
 	rewind(ptrfile);
 
+	if(LOG_DEBUG) printf("[FILE_SIZE] - File Size Is %d \n", size);
 	return size;
+	if(LOG_DEBUG) printf("[FILE_SIZE] - END \n");
 }
 
 void client_interface() {
@@ -679,29 +678,31 @@ void get_file(char *file, int shouldSaveOnMainDir) {
 	FILE* ptrfile;
 	char dataBuffer[KBYTE];
 
-	pthread_mutex_lock(&lock);
+	// pthread_mutex_lock(&lock);
 	shutdownInotify();
 	// copia nome do arquivo e comando para enviar para o servidor
 	packet clientCMDRequest;
 	clientCMDRequest.type = CMD;
 	clientCMDRequest.payloadCommand = DOWNLOAD;
 	strcpy(clientCMDRequest._payload, file);
+	if(LOG_DEBUG) printf("[GET_FILE] - File Name: %s To Server\n", clientCMDRequest._payload);
 
 	byteCount = write(sockfd, &clientCMDRequest, sizeof(struct packet));
-	if (byteCount < 0)
-		printf("Error sending DOWNLOAD message to server\n");
-
-
-	// lê estrutura do arquivo que será lido do servidor
+	if (byteCount < 0){
+		printf("[GET_FILE] - Error sending DOWNLOAD message to server\n");
+	}
+		
 	packet clientCMDSize;
+	if(LOG_DEBUG) printf("[GET_FILE] - Waiting to Receive File Structure\n");
 	byteCount = read(sockfd, &clientCMDSize, sizeof(struct packet));
 	if (byteCount < 0){
 		printf("Error receiving filesize\n");
 	}
 	fileSize = clientCMDSize.length;
+	if(LOG_DEBUG) printf("[GET_FILE] - File Size: %d\n", fileSize);
 
 	if (fileSize < 0) {
-		printf("The file doesn't exist\n\n\n");
+		printf("[GET_FILE] - The file doesn't exist\n\n\n");
 		return;
 	}
 
@@ -716,6 +717,7 @@ void get_file(char *file, int shouldSaveOnMainDir) {
 		strcpy(fileDirector, file);
 	}
 
+	if(LOG_DEBUG) printf("[GET_FILE] - Downloading File To: %s\n", fileDirector);
 
 	// cria arquivo no diretório do cliente
 	ptrfile = fopen(fileDirector, "wb");
@@ -729,28 +731,22 @@ void get_file(char *file, int shouldSaveOnMainDir) {
 		cont++;
 		packet clientCMDData;
 		byteCount = read(sockfd, &clientCMDData, sizeof(struct packet));
-		//strcpy(dataBuffer, clientCMDData._payload); memcpy
-		//printf("BUFFER %d - VALOR LIDO\n", cont);
-		//printf("SIZE: %ld", sizeof(clientCMDData._payload));
-		//printf("LENGHT: %d\n", clientCMDData.length);
-		// escreve no arquivo do cliente os bytes lidos do servidor
-		if(bytesLeft > KBYTE)
-		{
+		if(bytesLeft > KBYTE) {
 			byteCount = fwrite(clientCMDData._payload, KBYTE, 1, ptrfile);
 		}
-		else
-		{
+		else {
 			fwrite(clientCMDData._payload, bytesLeft, 1, ptrfile);
 		}
 		// decrementa os bytes lidos
 		bytesLeft -= KBYTE;
-		usleep(1000);
+		usleep(MAGICTRICK);
 	}
 
 	fclose(ptrfile);
-	printf("File %s has been downloaded\n\n", file);
+	printf("[LOG] - File %s has been downloaded\n\n", file);
 	addWatchInotify();
-	pthread_mutex_unlock(&lock);
+	// pthread_mutex_unlock(&lock);
+	if(LOG_DEBUG) printf("[GET_FILE] - END \n\n");
 }
 
 int commandRequest(char *request, char *file) {
@@ -795,7 +791,7 @@ void show_files() {
 	struct file_info file_info;
 	struct stat st;
 
-	pthread_mutex_lock(&lock);
+	// pthread_mutex_lock(&lock);
 	packet clientCMDRequest;
 	clientCMDRequest.type = CMD;
 	clientCMDRequest.payloadCommand = LIST;
@@ -808,7 +804,7 @@ void show_files() {
 	byteCount = read(sockfd, &clientCMDFileSizes, sizeof(struct packet));
 		if (byteCount < 0)
 		printf("Error READING LIST message to server\n");
-	usleep(1000);	
+	usleep(MAGICTRICK);	
 	fileNum = clientCMDFileSizes.payloadCommand;
 	printf("FILE SIZE RECEIVED: %d", clientCMDFileSizes.payloadCommand);
 	printf("Count Files: %d \n", fileNum);
@@ -822,7 +818,7 @@ void show_files() {
 		byteCount = read(sockfd, &file_info, sizeof(file_info));
 		printf("\nFile: %s \nLast modified: %sLast Access: %sLast Created: %ssize: %d\n", file_info.name, file_info.last_modified, ctime(&file_info.st.st_atime), ctime(&file_info.st.st_ctime), file_info.size);
 	}
-	pthread_mutex_unlock(&lock);
+	// pthread_mutex_unlock(&lock);
 }
 
 void close_connection() {
@@ -863,6 +859,5 @@ void delete_file(char* file) {
     	printf("%s file deleted successfully.\n", file);
 	} else {
     	printf("Unable to delete the file\n");
-    	perror("Following error occurred");
   	}
 }
