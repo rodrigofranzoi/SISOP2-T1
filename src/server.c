@@ -1,6 +1,7 @@
 #include "../utils/server.h"
 
 struct client_list *client_list;
+pthread_mutex_t lockF;
 
 int main(int argc, char *argv[]) {
 	int sockfd, newsockfd, n;
@@ -8,6 +9,7 @@ int main(int argc, char *argv[]) {
 	pthread_t clientThread, syncThread, syncServerClient;
 	struct sockaddr_in serv_addr, cli_addr;
 	struct socketPacket socketPacket;
+	pthread_mutex_init(&lockF, NULL);
 
 	//Inicializando a lista de clients
 	client_list = NULL;
@@ -221,7 +223,7 @@ struct file_info getFileInfo(char *username, char*filename){
 	//insere socket do client no nodo para depois fazer a comunicacao
 	if (findNode(username, client_list, &client_node)){
 			for(int i = 0; i < FILE_MAX; i++){
-				if(strcmp(client_node->client.file_info[i].name, filename)){
+				if(strcmp(client_node->client.file_info[i].name, filename) == 0){
 					return client_node->client.file_info[i];
 				}
 			}
@@ -233,6 +235,7 @@ struct file_info getFileInfo(char *username, char*filename){
 }
 
 void send_file(char *file, int socket, char *username) {
+	if (LOG_DEBUG) printf("[SEND_FILE] - Starting send_file\n");
 	int byteCount, bytesLeft, fileSize;
 	FILE* ptrfile;
 	char dataBuffer[KBYTE], path[KBYTE];
@@ -240,41 +243,55 @@ void send_file(char *file, int socket, char *username) {
 
 	file_info = getFileInfo(username, file);
 
-	pthread_mutex_lock(&file_info.file_mutex);
-
-	printf("FILE NAME%s\n", file);
+	if (LOG_DEBUG) printf("[SEND_FILE] - File name: %s\n", file);
   strcpy(path, username);
   strcat(path, "/");
   strcat(path, file);
-  if (ptrfile = fopen(path, "rb")) {
-      fileSize = getFileSize(ptrfile);
 
+		if (LOG_DEBUG) printf("[SEND_FILE] - Waiting mutex\n");
+		pthread_mutex_lock(&lockF);
+		if (LOG_DEBUG) printf("[SEND_FILE] - Passing mutex\n");
+		if (ptrfile = fopen(path, "rb")) {
+			  fileSize = getFileSize(ptrfile);
+				if (LOG_DEBUG) printf("[SEND_FILE] - File size: %d\n", fileSize);
+				if(fileSize == 0){
+					sleep(1);
+					fileSize = getFileSize(ptrfile);
+					if (LOG_DEBUG) printf("[SEND_FILE] - Retry file size: %d\n", fileSize);
+				}
+				packet clientCMDSize;
+				clientCMDSize.length = fileSize;
+	    	byteCount = write(socket, &clientCMDSize, sizeof(struct packet));
+
+				int cont = 0;
+	      while(!feof(ptrfile)) {
+					packet clientCMDData;
+						fread(&dataBuffer, sizeof(dataBuffer), 1, ptrfile);
+						memcpy(&clientCMDData._payload, &dataBuffer, sizeof(dataBuffer));
+						clientCMDData.length = sizeof(dataBuffer);
+	          byteCount = write(socket, &clientCMDData, sizeof(struct packet));
+	          cont++;
+						if(byteCount < 0){
+						  printf("ERROR sending file\n");
+						}
+						bzero(dataBuffer, sizeof(dataBuffer));
+						usleep(100);
+	      }
+
+				if (LOG_DEBUG) printf("[SEND_FILE] - Number of packets send: %d\n", cont);
+				if (LOG_DEBUG) printf("[SEND_FILE] - Closing file");
+	      fclose(ptrfile);
+	  }
+	  // arquivo não existe
+	  else {
+			if (LOG_DEBUG) printf("[SEND_FILE] - File does not exist");
+	    fileSize = -1;
 			packet clientCMDSize;
 			clientCMDSize.length = fileSize;
-    	byteCount = write(socket, &clientCMDSize, sizeof(struct packet));
+	    byteCount = write(socket, &clientCMDSize, sizeof(struct packet));
+	  }
+		pthread_mutex_unlock(&lockF);
 
-      while(!feof(ptrfile)) {
-				packet clientCMDData;
-					fread(&dataBuffer, sizeof(dataBuffer), 1, ptrfile);
-					memcpy(&clientCMDData._payload, &dataBuffer, sizeof(dataBuffer));
-					clientCMDData.length = sizeof(dataBuffer);
-          byteCount = write(socket, &clientCMDData, sizeof(struct packet));
-          if(byteCount < 0){
-					  printf("ERROR sending file\n");
-					}
-					bzero(dataBuffer, sizeof(dataBuffer));
-					usleep(100);
-      }
-      fclose(ptrfile);
-  }
-  // arquivo não existe
-  else {
-    fileSize = -1;
-		packet clientCMDSize;
-		clientCMDSize.length = fileSize;
-    byteCount = write(socket, &clientCMDSize, sizeof(struct packet));
-  }
-	pthread_mutex_unlock(&file_info.file_mutex);
 }
 
 
@@ -631,7 +648,7 @@ int getFileSize(FILE *ptrfile) {
 
 pthread_mutex_t mutex;
 void receive_file(struct packet responseThread, int socket, char*username) {
-	if(LOG_DEBUG) printf("[LOG] - Receiving New File\n");
+	if(LOG_DEBUG) printf("[RECEIVE_FILE] - Receiving New File\n");
   int byteCount, bytesLeft, fileSize;
   FILE* ptrfile;
   char dataBuffer[KBYTE], path[200];
@@ -640,7 +657,6 @@ void receive_file(struct packet responseThread, int socket, char*username) {
   struct stat st;
   time_t now;
 
-	pthread_mutex_lock(&file_info.file_mutex);
 
 	fileSize = responseThread.length;
 	strcpy(file, responseThread._payload);
@@ -648,16 +664,32 @@ void receive_file(struct packet responseThread, int socket, char*username) {
   strcat(path, "/");
   strcat(path, file);
 
-	if(LOG_DEBUG) printf("[LOG] - Receiving New File Name: %s\n", file);
-	if(LOG_DEBUG) printf("[LOG] - Receiving New File Lenght: %d\n", fileSize);
-	if(LOG_DEBUG) printf("[LOG] - Receiving New File Lst Modified: %s\n", ctime(&responseThread.lst_modified));
+	if(LOG_DEBUG) printf("[RECEIVE_FILE] - Receiving New File Name: %s\n", file);
+	if(LOG_DEBUG) printf("[RECEIVE_FILE] - Receiving New File Lenght: %d\n", fileSize);
+	if(LOG_DEBUG) printf("[RECEIVE_FILE] - Receiving New File Lst Modified: %s\n", ctime(&responseThread.lst_modified));
 
-  if (ptrfile = fopen(path, "wb")) {
+	// file_info = getFileInfo(username, file);
+	// if (strcmp(file_info.name, file) != 0) {
+	// 	if (pthread_mutex_init(&file_info.file_mutex, NULL) != 0) {
+	// 		if (LOG_DEBUG) printf("[RECEIVE_FILE] - Fail to inicialize mutex\n");
+	// 	}
+	// 	if (LOG_DEBUG) printf("[RECEIVE_FILE] -Updating file info at node.\n");
+	// 	updateFileInfo(username, file_info);
+	// } else {
+	// 	if (LOG_DEBUG) printf("[RECEIVE_FILE] - File info found.\n");
+	// }
 
+
+	if (LOG_DEBUG) printf("[RECEIVE_FILE] - Waiting mutex\n");
+	pthread_mutex_lock(&lockF);
+	if (LOG_DEBUG) printf("[RECEIVE_FILE] - Passing mutex\n");
+
+	if (ptrfile = fopen(path, "wb")) {
       if (fileSize == 0) {
         fclose(ptrfile);
 
-				printf("FILE SIZE IS == 0\n");
+				pthread_mutex_unlock(&lockF);
+				if(LOG_DEBUG) printf("[RECEIVE_FILE] - File size is zero.\n");
 
       	strcpy(file_info.name, file);
         strcpy(file_info.last_modified, ctime(&responseThread.lst_modified));
@@ -665,25 +697,20 @@ void receive_file(struct packet responseThread, int socket, char*username) {
         file_info.size = fileSize;
         stat(path, &st);
         file_info.st = st;
-
       	updateFileInfo(username, file_info);
+
         return;
       }
-
       bytesLeft = fileSize;
+
 			int cont = 0;
-
-
-				//pthread_mutex_lock(&mutex);
 	    while(bytesLeft > 0) {
-
+				cont++;
 				bzero(dataBuffer, sizeof(dataBuffer));
-
-				printf("WRITING TO FILE\n");
 				packet fileRequestBuff;
     		bzero(&fileRequestBuff, sizeof(struct packet));
 				byteCount = read(socket, &fileRequestBuff, sizeof(struct packet));
-					printf("SOKET %d\n", ++cont);
+
 					if(bytesLeft > KBYTE) {
 						byteCount = fwrite(fileRequestBuff._payload, KBYTE, 1, ptrfile);
 					} else {
@@ -693,12 +720,11 @@ void receive_file(struct packet responseThread, int socket, char*username) {
 					bytesLeft -= KBYTE;
 					usleep(1000);
       }
-			//pthread_mutex_unlock(&mutex);
-
-			printf("closing file\n" );
+			if(LOG_DEBUG) printf("[RECEIVE_FILE] - Number of packets send: %d\n", cont);
+			if(LOG_DEBUG) printf("[RECEIVE_FILE] - Closing file.\n");
       fclose(ptrfile);
       time (&now);
-
+			pthread_mutex_unlock(&lockF);
 
       stat(path, &st);
       file_info.st = st;
@@ -709,7 +735,7 @@ void receive_file(struct packet responseThread, int socket, char*username) {
 
       updateFileInfo(username, file_info);
 			signal_download2client(username, file, &file_info.lst_modified);
-			pthread_mutex_unlock(&file_info.file_mutex);
+
 	}
 }
 
@@ -719,7 +745,7 @@ void updateFileInfo(char *username, struct file_info file_info) {
 
   if (findNode(username, client_list, &client_node)) {
     for(i = 0; i < FILE_MAX; i++)
-      if(!strcmp(file_info.name, client_node->client.file_info[i].name)) {
+      if(strcmp(file_info.name, client_node->client.file_info[i].name) == 0) {
           client_node->client.file_info[i] = file_info;
           return;
         }
