@@ -254,11 +254,11 @@ void send_file(char *file, int socket, char *username) {
 		if (ptrfile = fopen(path, "rb")) {
 			  fileSize = getFileSize(ptrfile);
 				if (LOG_DEBUG) printf("[SEND_FILE] - File size: %d\n", fileSize);
-				if(fileSize == 0){
-					sleep(1);
-					fileSize = getFileSize(ptrfile);
-					if (LOG_DEBUG) printf("[SEND_FILE] - Retry file size: %d\n", fileSize);
-				}
+				// if(fileSize == 0){
+				// 	sleep(1);
+				// 	fileSize = getFileSize(ptrfile);
+				// 	if (LOG_DEBUG) printf("[SEND_FILE] - Retry file size: %d\n", fileSize);
+				// }
 				packet clientCMDSize;
 				clientCMDSize.length = fileSize;
 	    	byteCount = write(socket, &clientCMDSize, sizeof(struct packet));

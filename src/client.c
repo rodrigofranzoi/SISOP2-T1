@@ -11,7 +11,7 @@ char *host;
 int port;
 char directory[FILENAME_MAX_SIZE + 50];
 int sockfd = -1, sync_socket = -1, sync_server_client_socket = -1; 
-pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER; 
+pthread_mutex_t lock; 
 int notifyfd;
 int watchfd;
 
@@ -19,6 +19,7 @@ int main(int argc, char *argv[]) {
 
     struct sockaddr_in serv_addr;
     struct hostent *server;
+	pthread_mutex_init(&lock, NULL);
 	
     char buffer[256];
     
@@ -258,7 +259,8 @@ void signal2download(struct packet responseThread){
 	seconds = difftime(responseThread.lst_modified, localFileMdTime);
 	if( seconds > 0 ) {
 		if(LOG_DEBUG) printf("[SIGNAL_DOWNLOAD] - Getting a New Copy of %s \n", responseThread._payload);
-		sleep(1.5);
+		// sleep(1.5);
+		usleep(MAGICTRICK);
 		get_file(responseThread._payload, 1);
 	} else {
 		if(LOG_DEBUG) printf("[SIGNAL_DOWNLOAD] - Signal File Name %s Is Already Up to Date \n", responseThread._payload);
@@ -286,7 +288,7 @@ void *sync_thread() {
 	bzero(lasEvent, sizeof(lasEvent));
 
 	create_sync_sock();
-	// get_all_files();
+	get_all_files();
 
 	while(1) {
 	  length = read( notifyfd, buffer, BUF_LEN );
@@ -305,6 +307,7 @@ void *sync_thread() {
 					if(exists(path) && (event->name[0] != '.')) {
 						if(LOG_DEBUG) printf("\n\n\n[INOTIFY] - THIS EVENT %s LAST EVENT %d\n\n\n", event->name, event->mask);
 						sleep(1);
+						// usleep(MAGICTRICK);
 						upload_file(path, sync_socket);
 					}
 				}
@@ -564,11 +567,12 @@ void upload_file(char *file, int socket) {
 			if(LOG_DEBUG) printf("[UPLOAD_FILE] - File Size: %d \n", threadRequest.length);
 			if(LOG_DEBUG) printf("[UPLOAD_FILE] - File Last Modified: %s", ctime(&threadRequest.lst_modified));
 
-			if (threadRequest.length == 0) {
-				if(LOG_DEBUG) printf("[UPLOAD_FILE] - Closing File Due Size 0\n");
-				fclose(ptrfile);
-				return;
-			}
+			// if (threadRequest.length == 0) {
+			// 	if(LOG_DEBUG) printf("[UPLOAD_FILE] - Closing File Due Size 0\n");
+			// 	fclose(ptrfile);
+			// 	pthread_mutex_unlock(&lock);
+			// 	return;
+			// }
             write(socket, &threadRequest, sizeof(struct packet));
 
 		int cont =0;
@@ -678,7 +682,7 @@ void get_file(char *file, int shouldSaveOnMainDir) {
 	FILE* ptrfile;
 	char dataBuffer[KBYTE];
 
-	// pthread_mutex_lock(&lock);
+	pthread_mutex_lock(&lock);
 	shutdownInotify();
 	// copia nome do arquivo e comando para enviar para o servidor
 	packet clientCMDRequest;
@@ -745,7 +749,7 @@ void get_file(char *file, int shouldSaveOnMainDir) {
 	fclose(ptrfile);
 	printf("[LOG] - File %s has been downloaded\n\n", file);
 	addWatchInotify();
-	// pthread_mutex_unlock(&lock);
+	pthread_mutex_unlock(&lock);
 	if(LOG_DEBUG) printf("[GET_FILE] - END \n\n");
 }
 
